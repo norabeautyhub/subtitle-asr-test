@@ -1,0 +1,20 @@
+{
+  "name": "subtitle-asr-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phase 0 — සිංහල Speech-to-Text engine සංසන්දනය",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node run-test.js",
+    "ocr": "node ocr-reference.js"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^8.2.1",
+    "@google-cloud/vision": "^6.2.0",
+    "@google/genai": "^3.3.0",
+    "dotenv": "^18.0.10"
+  }
+}
