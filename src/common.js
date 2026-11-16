@@ -48,7 +48,7 @@ export function silencePoints(audio, noiseDb = -35, minSil = 0.2) {
  * Background music තියෙන videos වලට threshold එක ක්‍රමයෙන් ලිහිල් කරනවා.
  * @returns {{file: string, offset: number}[]}
  */
-export function splitAudio(audio, outDir, maxLen = 50) {
+export function splitAudio(audio, outDir, maxLen = 50, format = 'flac') {
   const total = mediaDuration(audio);
   const levels = [-40, -35, -30, -25, -20].map(db => silencePoints(audio, db, 0.2));
   const cuts = [0];
@@ -65,9 +65,10 @@ export function splitAudio(audio, outDir, maxLen = 50) {
   fs.mkdirSync(outDir, { recursive: true });
   const chunks = [];
   for (let i = 0; i < cuts.length - 1; i++) {
-    const file = path.join(outDir, `chunk_${String(i).padStart(3, '0')}.flac`);
+    const file = path.join(outDir, `chunk_${String(i).padStart(3, '0')}.${format}`);
+    const enc = format === 'mp3' ? ['-b:a', '64k'] : [];
     run('ffmpeg', ['-y', '-v', 'error', '-ss', cuts[i].toFixed(3), '-to', cuts[i + 1].toFixed(3),
-      '-i', audio, '-ac', '1', '-ar', '16000', file]);
+      '-i', audio, '-ac', '1', '-ar', '16000', ...enc, file]);
     chunks.push({ file, offset: cuts[i] });
   }
   return chunks;

@@ -9,12 +9,14 @@
 // ප්‍රතිඵලය: results/<video>/reference_ocr.txt සහ reference_ocr.srt
 // OCR එකත් 100% නිවැරදි නෑ — txt file එක open කරලා වැරදි හදලා save කරන්න.
 import dotenv from 'dotenv';
+import { ensureEnv } from './src/env.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import vision from '@google-cloud/vision';
 import { mediaDuration, run, ts } from './src/common.js';
 
+ensureEnv();
 dotenv.config({ quiet: true });
 // Google Cloud VM එකක නැති නිසා metadata server check එක අවශ්‍ය නෑ (warning නවත්වනවා)
 process.env.METADATA_SERVER_DETECTION ??= 'none';

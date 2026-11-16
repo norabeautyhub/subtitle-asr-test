@@ -6,27 +6,31 @@
 //   node run-test.js videos/Ayu_1.mp4 --reference reference.txt
 //   node run-test.js videos/Ayu_1.mp4 --engines elevenlabs_v2 gemini
 //
-// Engines: elevenlabs_v2, elevenlabs_v3, google, gemini  (default: key තියෙන ඔක්කොම)
+// Engines: elevenlabs_v2, elevenlabs_v3, cloudflare, google, gemini  (default: key තියෙන ඔක්කොම)
 import dotenv from 'dotenv';
+import { ensureEnv } from './src/env.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { extractAudio, mediaDuration, saveResult } from './src/common.js';
+import * as cloudflare from './src/engines/cloudflare.js';
 import * as elevenlabs from './src/engines/elevenlabs.js';
 import * as gemini from './src/engines/gemini.js';
 import * as google from './src/engines/google-chirp.js';
 import { buildReport } from './src/report.js';
 
+ensureEnv();
 dotenv.config({ quiet: true });
 // Google Cloud VM එකක නැති නිසා metadata server check එක අවශ්‍ය නෑ (warning නවත්වනවා)
 process.env.METADATA_SERVER_DETECTION ??= 'none';
 // එක engine එකක background error එකකින් මුළු test එකම නවතින්න එපා
 process.on('unhandledRejection', e => console.warn(`\n⚠️  ${e?.message || e}`));
 
-const ALL = ['elevenlabs_v2', 'elevenlabs_v3', 'google', 'gemini'];
+const ALL = ['elevenlabs_v2', 'elevenlabs_v3', 'cloudflare', 'google', 'gemini'];
 
 export const ENGINES = {
   elevenlabs_v2: ({ mp3 }) => elevenlabs.transcribe(mp3, 'scribe_v2'),
   elevenlabs_v3: ({ mp3 }) => elevenlabs.transcribe(mp3, 'scribe_v3'),
+  cloudflare: ({ mp3, workDir }) => cloudflare.transcribe(mp3, workDir),
   google: ({ flac, workDir }) => google.transcribe(flac, workDir),
   gemini: ({ mp3 }) => gemini.transcribe(mp3),
 };
@@ -49,6 +53,7 @@ function parseArgs(argv) {
 function defaultEngines() {
   const e = [];
   if (process.env.ELEVENLABS_API_KEY) e.push('elevenlabs_v2', 'elevenlabs_v3');
+  if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN) e.push('cloudflare');
   if (process.env.GOOGLE_CLOUD_PROJECT) e.push('google');
   if (process.env.GEMINI_API_KEY) e.push('gemini');
   return e.length ? e : ALL;

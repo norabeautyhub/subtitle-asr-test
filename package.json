@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "node run-test.js",
-    "ocr": "node ocr-reference.js"
+    "ocr": "node ocr-reference.js",
+    "browser-test": "node browser-test/serve.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^8.2.1",

@@ -1,3 +1,11 @@
+# Novi Subtitles
+
+> 🆕 **SaaS web app එක `web/` folder එකේ.** Setup සහ deploy කරන හැටි: [`web/README.md`](web/README.md)
+>
+> මේ පිටුවේ පහළින් තියෙන්නේ Phase 0 speech-to-text **test tool** එක ගැන.
+
+---
+
 # Phase 0 — සිංහල Speech-to-Text Engine Test (Node.js)
 
 මේ tool එකෙන් ඔයාගේ videos, සිංහල support කරන AI engines කිහිපයකට යවලා
@@ -10,6 +18,8 @@
 | ElevenLabs Scribe v3 | ✅ (`sin`) | ✅ හැම වචනයකටම |
 | Google Chirp 2 | ✅ (`si-LK`, asia-southeast1) | ✅ |
 | Gemini (general model) | ✅ prompt එකකින් | ⚠️ ආසන්න වශයෙන් විතරයි |
+| Cloudflare Workers AI (Whisper turbo) — **Standard plan** | ⚠️ සාමාන්‍ය Whisper | ✅ |
+| Browser Whisper (WebGPU) — **Free plan** | ⚠️ සාමාන්‍ය Whisper | ✅ — `browser-test` page එකෙන් |
 
 > AssemblyAI, Google Chirp 3 සහ Gemini 3.5 Transcribe දැනට සිංහල support කරන්නේ නැති නිසා ඒවා test එකට දාලා නෑ.
 
@@ -106,7 +116,51 @@ Folder එකේ address bar එකේ `cmd` → අලුත් video එක `v
 node run-test.js videos\අලුත්_video.mp4
 ```
 තෝරපු engines විතරක්: `--engines elevenlabs_v2 gemini`
-(තියෙන්නේ: `elevenlabs_v2`, `elevenlabs_v3`, `google`, `gemini`)
+(තියෙන්නේ: `elevenlabs_v2`, `elevenlabs_v3`, `cloudflare`, `google`, `gemini`)
+
+---
+
+## ⭐ Standard plan test — Cloudflare Workers AI
+
+1. https://dash.cloudflare.com → Sign up (free account එක ඇති)
+2. **Account ID:** Dashboard එකේ වම් පැත්තේ **Workers & Pages** → දකුණු පැත්තේ **Account ID** එක copy කරන්න
+3. **API Token:** උඩ දකුණේ profile icon → **My Profile → API Tokens → Create Token** →
+   **"Workers AI"** template එක → **Use template** → **Continue to summary** → **Create Token** → copy කරන්න
+4. `notepad .env` එකේ:
+   ```
+   CLOUDFLARE_ACCOUNT_ID=xxxxxxxx
+   CLOUDFLARE_API_TOKEN=xxxxxxxx
+   ```
+5. Run කරන්න (ElevenLabs keys තියෙනවා නම් ඒවත් auto run වෙලා එකම report එකේ සසඳනවා):
+   ```
+   node run-test.js "videos\Untitled design.mp4"
+   ```
+
+Free plan එකේ දවසකට audio විනාඩි ~200ක් විතර free.
+
+---
+
+## 🆓 Free plan test — Browser එකේ Whisper
+
+Video එක කොහෙවත් යවන්නේ නෑ. ඔයාගේ computer එකේ browser එක ඇතුළෙම run වෙනවා.
+
+1. Folder එකේ Command Prompt එකේ:
+   ```
+   npm run browser-test
+   ```
+   Chrome එකේ `http://localhost:5173/browser-test/` page එක auto open වෙනවා.
+   (Open වුණේ නැත්නම් ඒ link එක Chrome/Edge එකේ open කරන්න.)
+2. උඩ **"✔ WebGPU තියෙනවා"** කියලා කොළ පාටින් පේනවා නම් හොඳයි. රතු පාටින් නම් CPU එකෙන් run වෙන නිසා ගොඩක් හෙමින්.
+3. Video එක drag & drop කරන්න
+4. Model එක තෝරලා **▶ Subtitles හදන්න** click කරන්න
+   - පළවෙනි පාර model එක download වෙනවා (small ≈ MB 586). ඊට පස්සේ cache එකේ තියෙනවා.
+   - මුලින්ම **small** එකෙන් try කරන්න, ඊට පස්සේ **large-v3-turbo**
+5. ElevenLabs එක්ක සසඳන්න: **📂 JSON results load කරන්න** click කරලා
+   `results\<video>\elevenlabs_scribe_v3.json` තෝරන්න, ඊට පස්සේ
+   **"ElevenLabs result එක reference විදිහට ගන්න"** tick කරන්න
+6. Table එකේ **Accuracy**, **Subtitles** (ගිය කාලය), **වේගය** බලන්න. Video එක play කරලා timing එක බලන්න.
+
+නවත්වන්න: Command Prompt එකේ **Ctrl + C**
 
 ---
 

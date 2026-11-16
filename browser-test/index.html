@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Free plan test — Browser Whisper (සිංහල)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>Free plan test — Browser එකේ Whisper</h1>
+    <p class="muted">Video එක server එකකට යවන්නේ නෑ. හැමදේම මේ browser එක ඇතුළේ, ඔයාගේ computer එකේ GPU එකෙන් run වෙනවා.</p>
+    <div id="env" class="env"></div>
+  </header>
+
+  <section class="card">
+    <h2>1. Video එක තෝරන්න</h2>
+    <label id="drop" class="drop">
+      <input id="file" type="file" accept="video/*,audio/*" hidden>
+      <span>Video එක මෙතනට drag &amp; drop කරන්න, නැත්නම් click කරලා තෝරන්න</span>
+    </label>
+    <div id="fileInfo" class="muted"></div>
+  </section>
+
+  <section class="card">
+    <h2>2. Model එක තෝරන්න</h2>
+    <div id="models" class="models"></div>
+    <div class="row">
+      <label>භාෂාව
+        <select id="lang">
+          <option value="sinhala">සිංහල</option>
+          <option value="english">English</option>
+        </select>
+      </label>
+      <label class="grow">Custom model ID (optional — HuggingFace ONNX "_timestamped" model)
+        <input id="customModel" type="text" placeholder="උදා: onnx-community/whisper-small_timestamped">
+      </label>
+    </div>
+    <p class="muted small">⚠️ පළවෙනි පාර model එක download වෙනවා (MB සිය ගණනක්). ඊට පස්සේ browser cache එකේ තියෙන නිසා ආයේ download වෙන්නේ නෑ. Process වෙනකම් මේ tab එක close කරන්න එපා.</p>
+    <button id="run" disabled>▶ Subtitles හදන්න</button>
+    <div id="status" class="status"></div>
+    <div class="bar"><div id="bar"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>3. ප්‍රතිඵල</h2>
+    <div class="row">
+      <label class="grow">Reference (නිවැරදි text එක) — accuracy මනින්න
+        <textarea id="refText" rows="2" placeholder="Video එකේ කියවෙන නිවැරදි text එක මෙතනට paste කරන්න..."></textarea>
+      </label>
+    </div>
+    <div class="row small">
+      <label class="btn-like">📂 Test tool එකේ JSON results load කරන්න (ElevenLabs/Cloudflare)
+        <input id="loadJson" type="file" accept=".json" multiple hidden>
+      </label>
+      <span class="muted">උදා: <code>results\&lt;video&gt;\elevenlabs_scribe_v3.json</code> — ElevenLabs එකත් එක්ක සසඳන්න</span>
+    </div>
+    <label class="small"><input id="refFromEl" type="checkbox"> Reference text නැත්නම්, load කරපු ElevenLabs result එක reference විදිහට ගන්න</label>
+    <table id="table"><thead><tr>
+      <th>Engine</th><th>Device</th><th>Accuracy</th><th>CER</th><th>WER</th><th>වචන</th>
+      <th>Model load</th><th>Subtitles</th><th>වේගය</th><th></th>
+    </tr></thead><tbody></tbody></table>
+    <p class="muted small">Accuracy = 100 − CER. "වේගය" = video දිග ÷ subtitles හදන්න ගිය කාලය (උදා: 3× = video එකට වඩා 3 ගුණයක් ඉක්මනින්).</p>
+  </section>
+
+  <section class="card">
+    <h2>4. Video එකත් එක්ක බලන්න</h2>
+    <div class="player">
+      <div class="vwrap"><video id="video" controls></video><div id="cap"></div></div>
+      <div id="engines" class="side"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>5. Text සංසන්දනය</h2>
+    <p class="muted small"><del>රතු</del> = reference එකේ තිබුණත් engine එක වැරදියට/මඟහැරපු වචන, <ins>කොළ</ins> = engine එක ලියපු වෙනස් වචන.</p>
+    <div id="texts"></div>
+  </section>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
