@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, fmtDate, fmtMinutes } from '../api.js';
+import { api, fmtDate, fmtHM, fmtMinutes, fmtPrice } from '../api.js';
 import { useSession } from '../App.jsx';
 
-const TABS = [['overview', 'Overview'], ['users', 'Users'], ['plans', 'Plans'], ['settings', 'Settings']];
+const TABS = [['overview', 'Overview'], ['users', 'Users'], ['plans', 'Plans'], ['orders', 'Extra minutes'], ['settings', 'Settings']];
 
 export default function Admin() {
   const [tab, setTab] = useState('overview');
@@ -17,6 +17,7 @@ export default function Admin() {
       {tab === 'overview' && <Overview />}
       {tab === 'users' && <Users />}
       {tab === 'plans' && <Plans />}
+      {tab === 'orders' && <TopUps />}
       {tab === 'settings' && <Settings />}
     </div>
   );
@@ -45,7 +46,8 @@ function Overview() {
         <div className="muted small">{Object.entries(s.byPlan).map(([k, v]) => `${k}: ${v}`).join(' · ')}</div></div>
       <div className="card stat"><div className="muted small">මේ මාසේ ({s.period}) process කළ විනාඩි</div><div className="big accent">{fmtMinutes(s.minutesUsedThisMonth)}</div></div>
       <div className="card stat"><div className="muted small">මේ මාසේ videos</div><div className="big">{s.jobsThisMonth}</div>
-        <div className="muted small">ElevenLabs වියදම ≈ ${(s.minutesUsedThisMonth / 60 * 0.22).toFixed(2)}</div></div>
+        <div className="muted small">ElevenLabs වියදම ≈ ${(s.minutesUsedThisMonth / 60 * 0.20).toFixed(2)}</div></div>
+      <div className="card stat"><div className="muted small">ගෙවන්න තියෙන Extra minutes orders</div><div className={`big ${s.pendingOrders ? 'accent' : ''}`}>{s.pendingOrders ?? 0}</div></div>
       {s.engine && (
         <div className="card stat">
           <div className="muted small">Server setup</div>
@@ -188,7 +190,7 @@ function PlanEditor({ plan, onSaved }) {
   const set = (k, num) => e => setF(x => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : num ? Number(e.target.value) : e.target.value }));
   const save = async e => {
     e.preventDefault();
-    const { id, sort_order, ...body } = f;
+    const { id, sort_order, engine, render_mode, ...body } = f;
     try { await api(`/admin/plans/${plan.id}`, { method: 'PUT', body }); show('Save වුණා'); onSaved(); }
     catch (err) { show(err.message, 'err'); }
   };
@@ -198,13 +200,7 @@ function PlanEditor({ plan, onSaved }) {
       {toast}
       <label>නම<input value={f.name} onChange={set('name')} /></label>
       <label>විස්තරය<input value={f.description} onChange={set('description')} /></label>
-      <label>Engine
-        <select value={f.engine} onChange={set('engine')}>
-          <option value="elevenlabs">ElevenLabs (අපේ key)</option>
-          <option value="elevenlabs_byok">ElevenLabs (user ගේ key — BYOK)</option>
-        </select>
-      </label>
-      <label>මාසික විනාඩි<input type="number" min="0" step="1" value={f.monthly_minutes} onChange={set('monthly_minutes', true)} /></label>
+      <label>Transcription — මාසික විනාඩි <span className="muted">({fmtHM(f.monthly_minutes)})</span><input type="number" min="0" step="1" value={f.monthly_minutes} onChange={set('monthly_minutes', true)} /></label>
       <label className="check"><input type="checkbox" checked={f.unlimited} onChange={set('unlimited')} /> Minutes limit නෑ (unlimited)</label>
       <label>උපරිම video දිග (තත්පර)<input type="number" min="1" value={f.max_video_seconds} onChange={set('max_video_seconds', true)} /></label>
       <label>Export quality
@@ -214,15 +210,119 @@ function PlanEditor({ plan, onSaved }) {
       </label>
       <label className="check"><input type="checkbox" checked={f.watermark} onChange={set('watermark')} /> Watermark</label>
       <label>උපරිම projects<input type="number" min="0" value={f.max_projects} onChange={set('max_projects', true)} /></label>
-      <label>Render
-        <select value={f.render_mode} onChange={set('render_mode')}>
-          <option value="browser">Browser</option><option value="server">Server</option>
-        </select>
-      </label>
-      <label>මිල (රු./මාසෙට — පෙන්වන්න විතරයි)<input type="number" min="0" value={f.price_lkr} onChange={set('price_lkr', true)} /></label>
+      <div className="grid2 tight">
+        <label>මිල LKR / මාසෙට<input type="number" min="0" value={f.price_lkr} onChange={set('price_lkr', true)} /></label>
+        <label>මිල USD / මාසෙට<input type="number" min="0" step="0.01" value={f.price_usd} onChange={set('price_usd', true)} /></label>
+      </div>
       <label className="check"><input type="checkbox" checked={f.active} onChange={set('active')} /> Website එකේ පෙන්වන්න</label>
       <button className="btn full">Save</button>
     </form>
+  );
+}
+
+// ---------------- Extra minutes: packs + orders ----------------
+const ORDER_STATUS = { pending: '⏳ Pending', paid: '✅ Paid', cancelled: '✕ Cancelled' };
+
+function TopUps() {
+  return (
+    <div>
+      <OrdersList />
+      <PacksEditor />
+    </div>
+  );
+}
+
+function OrdersList() {
+  const [status, setStatus] = useState('pending');
+  const [orders, setOrders] = useState(null);
+  const [toast, show] = useToast();
+  const load = useCallback(() => api(`/admin/topup/orders${status ? `?status=${status}` : ''}`).then(d => setOrders(d.orders)).catch(e => show(e.message, 'err')), [status]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
+  const paid = async o => {
+    const note = prompt(`${o.email} — ${fmtHM(o.minutes)} (${fmtPrice(o.amount, o.currency)})\nගෙවීම ලැබුණාද? සටහනක් (උදා: bank ref):`, '');
+    if (note === null) return;
+    try { await api(`/admin/topup/orders/${o.id}/paid`, { method: 'POST', body: { note } }); show(`✅ ${fmtHM(o.minutes)} ${o.email} ට එකතු කළා`); load(); }
+    catch (e) { show(e.message, 'err'); }
+  };
+  const cancel = async o => {
+    if (!confirm(`${o.id} cancel කරන්නද?`)) return;
+    try { await api(`/admin/topup/orders/${o.id}/cancel`, { method: 'POST' }); load(); } catch (e) { show(e.message, 'err'); }
+  };
+  return (
+    <div className="card">
+      <div className="row between">
+        <h3 style={{ margin: 0 }}>🧾 Extra minutes orders</h3>
+        <select style={{ width: 'auto', margin: 0 }} value={status} onChange={e => setStatus(e.target.value)}>
+          <option value="pending">Pending</option><option value="paid">Paid</option><option value="cancelled">Cancelled</option><option value="">ඔක්කොම</option>
+        </select>
+      </div>
+      {toast}
+      <p className="small muted">Card payment (PayHere / Stripe) දානකන් users order එකක් හදලා ඔයාට ගෙවනවා. සල්ලි ලැබුණාම "Paid" ඔබන්න — විනාඩි auto එකතු වෙනවා.</p>
+      {orders === null ? <p className="muted">Loading...</p> : (
+        <table className="table">
+          <thead><tr><th>දිනය</th><th>User</th><th>Order</th><th>විනාඩි</th><th>මිල</th><th>තත්වය</th><th /></tr></thead>
+          <tbody>
+            {orders.length === 0 && <tr><td colSpan={7} className="muted">Orders නෑ</td></tr>}
+            {orders.map(o => (
+              <tr key={o.id}>
+                <td>{fmtDate(o.created_at)}</td>
+                <td>{o.email}</td>
+                <td><code className="small">{o.id}</code>{o.note && <div className="muted small">{o.note}</div>}</td>
+                <td>{fmtHM(o.minutes)}</td>
+                <td>{fmtPrice(o.amount, o.currency)}</td>
+                <td>{ORDER_STATUS[o.status] || o.status}{o.paid_at && <div className="muted small">{fmtDate(o.paid_at)}</div>}</td>
+                <td style={{ whiteSpace: 'nowrap' }}>{o.status === 'pending' && <>
+                  <button className="btn xs" onClick={() => paid(o)}>✓ Paid</button>{' '}
+                  <button className="btn ghost xs" onClick={() => cancel(o)}>Cancel</button>
+                </>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function PacksEditor() {
+  const [packs, setPacks] = useState(null);
+  const [toast, show] = useToast();
+  useEffect(() => { api('/admin/topup/packs').then(d => setPacks(d.packs)).catch(e => show(e.message, 'err')); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!packs) return <div className="card muted">Loading...</div>;
+  const set = (i, k) => e => setPacks(ps => ps.map((p, j) => (j === i ? { ...p, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value } : p)));
+  const move = (i, d) => setPacks(ps => { const a = [...ps]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; });
+  const save = async () => {
+    try { const r = await api('/admin/topup/packs', { method: 'PUT', body: { packs } }); setPacks(r.packs); show('Save වුණා'); }
+    catch (e) { show(e.message, 'err'); }
+  };
+  return (
+    <div className="card">
+      <h3>📦 Extra minutes packs</h3>
+      {toast}
+      <p className="small muted">Users ලට පේන packs. ElevenLabs වියදම පැයකට ~$0.20යි — ඒකට ලාභයක් එකතු කරලා මිල දාන්න.</p>
+      <table className="table packs-edit">
+        <thead><tr><th>විනාඩි</th><th>LKR</th><th>USD</th><th>පෙන්වන්න</th><th /></tr></thead>
+        <tbody>
+          {packs.map((p, i) => (
+            <tr key={p.id || i}>
+              <td><input type="number" min="1" value={p.minutes} onChange={set(i, 'minutes')} /><div className="muted small">{fmtHM(p.minutes)}</div></td>
+              <td><input type="number" min="0" value={p.price_lkr} onChange={set(i, 'price_lkr')} /></td>
+              <td><input type="number" min="0" step="0.01" value={p.price_usd} onChange={set(i, 'price_usd')} /></td>
+              <td><input type="checkbox" checked={p.active !== false} onChange={set(i, 'active')} /></td>
+              <td style={{ whiteSpace: 'nowrap' }}>
+                <button className="btn ghost xs" onClick={() => move(i, -1)}>↑</button>{' '}
+                <button className="btn ghost xs" onClick={() => move(i, 1)}>↓</button>{' '}
+                <button className="btn ghost xs danger" onClick={() => setPacks(ps => ps.filter((_, j) => j !== i))}>🗑</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="row">
+        <button className="btn ghost sm" onClick={() => setPacks(ps => [...ps, { minutes: 120, price_lkr: 0, price_usd: 0, active: true }])}>➕ Pack එකක්</button>
+        <button className="btn sm" onClick={save}>Save</button>
+      </div>
+    </div>
   );
 }
 

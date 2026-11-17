@@ -1,24 +1,34 @@
-const ENGINE_LABEL = {
-  elevenlabs: 'ElevenLabs AI (හොඳම සිංහල quality)',
-  elevenlabs_byok: 'ඔයාගේම ElevenLabs API key එක',
-};
+import { fmtHM, fmtPrice } from '../api.js';
 
-export default function PlanCard({ plan, current = false, children }) {
+export default function PlanCard({ plan, current = false, currency = 'LKR', children }) {
+  const price = currency === 'USD' ? plan.price_usd : plan.price_lkr;
   return (
     <div className={`card plan ${current ? 'current' : ''}`}>
       {current && <div className="badge">ඔයාගේ plan එක</div>}
       <h3>{plan.name}</h3>
       <p className="muted">{plan.description}</p>
-      {plan.price_lkr > 0 && <div className="price">Rs. {plan.price_lkr.toLocaleString()}<span>/මාසෙට</span></div>}
+      <div className="price">{price > 0 ? <>{fmtPrice(price, currency)}<span>/මාසෙට</span></> : 'නොමිලේ'}</div>
       <ul className="features">
-        <li>{plan.unlimited ? 'Minutes limit නෑ' : plan.monthly_minutes > 0 ? `මාසෙට විනාඩි ${plan.monthly_minutes}` : 'Minutes credits වලින්'}</li>
-        <li>{ENGINE_LABEL[plan.engine] || plan.engine}</li>
+        <li><b>{plan.unlimited ? 'Transcription limit නෑ' : `Transcription: මාසෙට ${fmtHM(plan.monthly_minutes)}`}</b></li>
+        <li>ElevenLabs AI (හොඳම සිංහල quality)</li>
         <li>උපරිම video දිග: විනාඩි {Math.round(plan.max_video_seconds / 60)}</li>
         <li>Export: {plan.export_quality.toUpperCase()}</li>
         <li>{plan.watermark ? 'Watermark එක්ක' : 'Watermark නෑ'}</li>
-        <li>{plan.render_mode === 'server' ? 'Server render (tab එක close කරන්න පුළුවන්)' : 'Browser render'}</li>
+        {!plan.unlimited && <li>විනාඩි ඉවර වුණාම Extra minutes ගන්න පුළුවන්</li>}
       </ul>
       {children}
     </div>
   );
 }
+
+export function CurrencyToggle({ value, onChange }) {
+  return (
+    <div className="cur-toggle" role="group" aria-label="Currency">
+      {['LKR', 'USD'].map(c => <button key={c} type="button" className={value === c ? 'on' : ''} onClick={() => onChange(c)}>{c}</button>)}
+    </div>
+  );
+}
+
+const KEY = 'novi-currency';
+export function savedCurrency() { try { return localStorage.getItem(KEY) === 'USD' ? 'USD' : 'LKR'; } catch { return 'LKR'; } }
+export function saveCurrency(c) { try { localStorage.setItem(KEY, c); } catch { /* ignore */ } }

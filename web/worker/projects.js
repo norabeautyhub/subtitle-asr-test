@@ -4,7 +4,6 @@ import { requireUser } from './auth.js';
 import { commitUsage, getPlan, refundUsage, reserveMinutes } from './credits.js';
 import { getEngine } from './engines/index.js';
 import { getCompanyKey, getMockMode } from './platform.js';
-import { decryptSecret } from './secrets.js';
 import { HttpError, newId, now, round1 } from './util.js';
 import { parseWav } from './wav.js';
 
@@ -171,11 +170,7 @@ p.post('/:id/transcribe-chunk', async c => {
   const { mock } = await getMockMode(c.env);
   const engine = getEngine(plan.engine, { mock });
   let apiKey;
-  if (!mock && engine.byok) {
-    const k = await db.prepare(`SELECT * FROM user_api_keys WHERE user_id = ? AND provider = 'elevenlabs'`).bind(user.id).first();
-    if (!k) throw new HttpError(400, 'Premium plan එකට ඔයාගේ ElevenLabs API key එක Settings වල දාන්න');
-    apiKey = await decryptSecret(c.env, k.ciphertext, k.iv);
-  } else if (!mock) {
+  if (!mock) {
     apiKey = (await getCompanyKey(c.env)).key;
     if (!apiKey) throw new HttpError(500, 'ElevenLabs API key එක set කරලා නෑ — Admin → Settings වල දාන්න');
   }
@@ -185,7 +180,7 @@ p.post('/:id/transcribe-chunk', async c => {
   });
   let res;
   try {
-    res = await engine.impl.transcribe(c.env, { audio, language, apiKey, byok: !!engine.byok });
+    res = await engine.impl.transcribe(c.env, { audio, language, apiKey });
   } catch (e) {
     await refundUsage(db, usageId);
     throw e;

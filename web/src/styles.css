@@ -27,7 +27,7 @@ label.check{display:flex;gap:8px;align-items:center;color:var(--text)}label.chec
 .grad{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .lead{color:var(--muted);font-size:18px;max-width:640px;margin:0 auto 26px}
 .section-title{text-align:center;margin:40px 0 20px}
-.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
 .plan{position:relative}.plan.current{border-color:var(--accent)}
 .badge{position:absolute;top:-11px;right:16px;background:var(--accent);color:#fff;font-size:12px;border-radius:99px;padding:2px 10px}
 .price{font-size:26px;font-weight:700;margin:8px 0}.price span{font-size:14px;color:var(--muted);font-weight:400}
@@ -229,3 +229,23 @@ label.check{display:flex;gap:8px;align-items:center;color:var(--text)}label.chec
 .key-status code{background:#0b0d12;padding:2px 8px;border-radius:6px}
 .mock-banner{background:#3a2e0b;border:1px solid #7a5c12;color:#fde68a;border-radius:10px;padding:9px 14px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .mock-banner a{color:#fff;text-decoration:underline}
+
+/* ---------- Plans currency / Extra minutes ---------- */
+.cur-toggle{display:inline-flex;background:#0b0d12;border:1px solid var(--line);border-radius:99px;padding:3px;gap:2px}
+.cur-toggle button{border:0;background:transparent;color:var(--muted);border-radius:99px;padding:5px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.cur-toggle button.on{background:var(--accent);color:#fff}
+.bar.warn div{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.buy-page .usage-card{margin-top:14px}
+.usage-row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+.usage-extra{text-align:right}
+.big-num{font-size:26px;font-weight:800}.big-num.accent{color:#a5b4fc}
+.packs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:6px 0 10px}
+.pack{position:relative;text-align:center;display:flex;flex-direction:column;gap:6px;margin:0}
+.pack .badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);white-space:nowrap}
+.pack-time{font-size:28px;font-weight:800;margin-top:6px}
+.pack-price{font-size:20px;font-weight:700;color:#a5b4fc}
+.pack .btn{margin-top:auto}
+.order-made code{background:#0b0d12;padding:1px 7px;border-radius:5px;user-select:all}
+.pill.muted-pill{opacity:.6}
+.packs-edit input{margin:0;padding:6px 8px}
+.packs-edit input[type=checkbox]{width:auto}

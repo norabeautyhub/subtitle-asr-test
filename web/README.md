@@ -1,4 +1,4 @@
-# Novi Subtitles — Web App (Phase 1: කොටස 1 – 5)
+# Novi Subtitles — Web App (Phase 1: කොටස 1 – 6)
 
 සිංහල සහ English auto subtitles SaaS එක. Cloudflare Workers + D1 database + React.
 
@@ -153,6 +153,13 @@ Cloudflare dashboard → **Workers & Pages** → **novi-subtitles** → **Settin
 - ⌨ Shortcuts: **Space** play/pause · **S** playhead එකෙන් line එක කඩන්න · **Delete** line එක මකන්න · **Ctrl+Z / Ctrl+Y**
 - 🔑 **Admin → Settings → ElevenLabs:** company API key එක මෙතනින් දාන්න (check කරලා, encrypt කරලා save වෙනවා). `.dev.vars` එකේ key එක තිබ්බත් admin panel එකේ key එකට තමයි මුල් තැන
 - 🧪 **Test mode switch:** බොරු subtitles (credits වැය නෑ) ↔ ඇත්ත ElevenLabs. Test mode on නම් editor එකේ "🧪 Test mode" කියලා පේනවා
+
+### කොටස 6 — Plans 6ක් + Extra minutes (අලුත්)
+- 📦 Plans: **Free (12 min) · Starter (1h 31m) · Creator (6h 7m) · Pro (30h 18m) · Scale (90h 55m) · Business (303h)** — මාසික transcription කාලය. මිල LKR සහ USD දෙකෙන්ම (Admin → Plans වලින් වෙනස් කරන්න — දැනට තියෙන්නේ යෝජිත මිල)
+- Engine එක ElevenLabs විතරයි. Premium (user ගේම key) plan එක අයින් කළා. පරණ users: Basic → Free, Standard → Starter, Premium → Pro
+- ⏱ **Extra minutes:** මාසික කාලය ඉවර වුණාම users ලට `/buy` page එකෙන් packs ගන්න පුළුවන් (ගත්ත විනාඩි ඉවර වෙනකන් තියෙනවා)
+- 💳 Card payment එක පස්සේ (PayHere / Stripe). දැනට user order එකක් හදනවා → ඔයාට ගෙවනවා → **Admin → Extra minutes → ✓ Paid** → විනාඩි auto එකතු වෙනවා
+- Admin → Extra minutes: orders ලැයිස්තුව + packs (විනාඩි, LKR, USD) වෙනස් කරන්න
 
 ## 🎬 Remotion license (MP4 export)
 MP4 export එකට Remotion කියන library එක පාවිච්චි කරනවා. ඒකේ license එක:

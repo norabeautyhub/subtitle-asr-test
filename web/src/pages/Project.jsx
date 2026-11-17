@@ -25,7 +25,6 @@ export default function Project({ id }) {
   const { project, transcript } = data;
   const need = secondsToMinutes(project.duration);
   const enough = balance?.unlimited || (balance?.available ?? 0) >= need;
-  const isByok = plan?.engine === 'elevenlabs_byok';
 
   const generate = async () => {
     if (transcript && !confirm(`ආයේ subtitles හැදුවොත් විනාඩි ${fmtMinutes(need)}ක් අඩු වෙනවා, දැනට තියෙන subtitles මැකෙනවා. කරන්නද?`)) return;
@@ -94,13 +93,12 @@ export default function Project({ id }) {
             </select>
           </label>
           <p className="small muted">
-            {balance?.unlimited ? 'ඔයාගේ ElevenLabs key එකෙන් — limit නෑ' : <>අඩු වෙන විනාඩි: <b>{fmtMinutes(need)}</b> · ඔයාට තියෙන්නේ: <b>{fmtMinutes(balance?.available)}</b></>}
+            {balance?.unlimited ? 'Limit නෑ' : <>අඩු වෙන විනාඩි: <b>{fmtMinutes(need)}</b> · ඔයාට තියෙන්නේ: <b>{fmtMinutes(balance?.available)}</b></>}
           </p>
-          {!enough && <div className="alert error">විනාඩි මදි. Credits ගන්න admin ට කතා කරන්න.</div>}
+          {!enough && <div className="alert error">විනාඩි මදි. <Link to="/buy">⏱ Extra minutes ගන්න</Link></div>}
           <button className={`btn ${transcript ? 'ghost sm' : 'full'}`} disabled={!enough} onClick={generate}>
             {transcript ? '🔄 ආයේ හදන්න (edit කරපු text මැකෙනවා)' : '✨ Subtitles හදන්න'}
           </button>
-          {isByok && <p className="small muted">Premium: ඔයාගේ ElevenLabs key එක <Link to="/settings">Settings</Link> වල දාලා තියෙන්න ඕනේ.</p>}
         </>
       )}
       {job && (

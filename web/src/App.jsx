@@ -7,6 +7,7 @@ import Admin from './pages/Admin.jsx';
 import NewProject from './pages/NewProject.jsx';
 import Project from './pages/Project.jsx';
 import Settings from './pages/Settings.jsx';
+import BuyMinutes from './pages/BuyMinutes.jsx';
 
 // ---------------- පොඩි router එකක් ----------------
 const RouterCtx = createContext(null);
@@ -66,6 +67,7 @@ export default function App() {
   else if (path === '/dashboard') page = user ? <Dashboard /> : <Redirect to="/login" />;
   else if (path === '/new') page = user ? <NewProject /> : <Redirect to="/login" />;
   else if (path === '/settings') page = user ? <Settings /> : <Redirect to="/login" />;
+  else if (path === '/buy') page = user ? <BuyMinutes /> : <Redirect to="/login" />;
   else if (path.startsWith('/projects/')) page = user ? <Project key={path} id={path.split('/')[2]} /> : <Redirect to="/login" />;
   else if (path.startsWith('/admin')) page = !user ? <Redirect to="/login" /> : user.role === 'admin' ? <Admin /> : <NotFound />;
   else if (path === '/') page = <Home />;

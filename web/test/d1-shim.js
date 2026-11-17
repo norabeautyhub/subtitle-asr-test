@@ -13,7 +13,7 @@ export function createTestDb() {
       bind: (...a) => { args = a; return s; },
       first: async () => sqlite.prepare(sql).get(...args) ?? null,
       all: async () => ({ results: sqlite.prepare(sql).all(...args) }),
-      run: async () => { sqlite.prepare(sql).run(...args); return { success: true }; },
+      run: async () => { const r = sqlite.prepare(sql).run(...args); return { success: true, meta: { changes: Number(r.changes) } }; },
       _run: () => sqlite.prepare(sql).run(...args),
     };
     return s;

@@ -43,6 +43,17 @@ async function handle(res) {
 }
 
 export const fmtMinutes = m => (m === null || m === undefined ? '∞' : `${Number(m).toLocaleString('en-US', { maximumFractionDigits: 1 })}`);
+/** 91 → "1h 31m", 12 → "12 min" */
+export const fmtHM = m => {
+  m = Math.round(Number(m) || 0);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? `${h.toLocaleString('en-US')}h ${r}m` : `${h.toLocaleString('en-US')}h`;
+};
+/** මිල: LKR → "Rs. 1,800", USD → "$6" */
+export const fmtPrice = (v, cur) => (cur === 'USD'
+  ? `$${Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+  : `Rs. ${Number(v).toLocaleString('en-US')}`);
 export const fmtDate = ts => (ts ? new Date(ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 export const fmtDuration = s => {
   s = Math.round(s || 0);

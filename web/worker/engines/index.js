@@ -7,7 +7,6 @@ import * as mock from './mock.js';
 
 export const ENGINES = {
   elevenlabs: { label: 'ElevenLabs', byok: false, impl: elevenlabs },
-  elevenlabs_byok: { label: 'ElevenLabs (ඔයාගේ key)', byok: true, impl: elevenlabs },
   // පස්සේ: whisper_sinhala: { label: 'Sinhala Whisper', byok: false, impl: whisperSinhala },
 };
 

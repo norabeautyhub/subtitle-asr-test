@@ -1,5 +1,6 @@
 // Novi Subtitles — API (Cloudflare Worker + Hono)
 import { Hono } from 'hono';
+import { cancelOrder, createOrder, listOrders, listPacks, markOrderPaid, savePacks } from './topups.js';
 import { cleanKey, companyKeyInfo, deleteCompanyKey, getCompanyKey, getMockMode, saveCompanyKey, setMockMode, testElevenLabsKey } from './platform.js';
 import {
   createSession, destroySession, hashPassword, isAdminEmail, loadUser,
@@ -7,7 +8,6 @@ import {
 } from './auth.js';
 import { addCredits, getBalance, getPlan, getSetting } from './credits.js';
 import projects from './projects.js';
-import { encryptSecret } from './secrets.js';
 import { HttpError, newId, now, round1 } from './util.js';
 
 const app = new Hono().basePath('/api');
@@ -45,7 +45,7 @@ const publicPlan = p => ({
   id: p.id, name: p.name, description: p.description, engine: p.engine,
   monthly_minutes: p.monthly_minutes, unlimited: !!p.unlimited, max_video_seconds: p.max_video_seconds,
   export_quality: p.export_quality, watermark: !!p.watermark, max_projects: p.max_projects,
-  render_mode: p.render_mode, price_lkr: p.price_lkr, sort_order: p.sort_order, active: !!p.active,
+  render_mode: p.render_mode, price_lkr: p.price_lkr, price_usd: p.price_usd ?? 0, sort_order: p.sort_order, active: !!p.active,
 });
 
 // ---------------- Public ----------------
@@ -69,7 +69,7 @@ app.post('/auth/register', async c => {
   const role = (await isAdminEmail(c.env, email, db)) ? 'admin' : 'user';
   await db.prepare(
     'INSERT INTO users (id, email, name, password_hash, role, plan_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-  ).bind(id, email, String(name).trim().slice(0, 100), await hashPassword(password, c.env), role, 'basic', now()).run();
+  ).bind(id, email, String(name).trim().slice(0, 100), await hashPassword(password, c.env), role, 'free', now()).run();
 
   const bonus = parseFloat(await getSetting(db, 'signup_bonus_minutes', '0')) || 0;
   if (bonus > 0) await addCredits(db, id, bonus, 'signup_bonus', 'Sign up bonus');
@@ -134,26 +134,17 @@ app.post('/me/password', requireUser, async c => {
   return c.json({ ok: true });
 });
 
-// ---------------- Premium: user ගේ ElevenLabs API key ----------------
-app.get('/me/keys', requireUser, async c => {
-  const k = await c.env.DB.prepare(`SELECT provider, last4, created_at FROM user_api_keys WHERE user_id = ?`).bind(c.get('user').id).all();
-  return c.json({ keys: k.results });
+// ---------------- Extra minutes (top-up) ----------------
+app.get('/topup/packs', requireUser, async c => c.json({ packs: await listPacks(c.env.DB) }));
+app.get('/topup/orders', requireUser, async c => c.json({ orders: await listOrders(c.env.DB, { userId: c.get('user').id, limit: 30 }) }));
+app.post('/topup/orders', requireUser, async c => {
+  const { packId, currency } = await body(c);
+  const order = await createOrder(c.env.DB, c.get('user'), { packId, currency });
+  // Payment gateway එක තාම නෑ — පස්සේ මෙතනින් PayHere / Stripe checkout URL එක යවනවා
+  return c.json({ order, payment: { available: false } }, 201);
 });
-
-app.put('/me/keys/elevenlabs', requireUser, async c => {
-  const { key } = await body(c);
-  const k = String(key || '').trim();
-  if (k.length < 20 || k.length > 200 || /\s/.test(k)) throw new HttpError(400, 'API key එක වැරදියි — ElevenLabs එකෙන් copy කරපු key එක (sk_...) paste කරන්න');
-  const { ciphertext, iv } = await encryptSecret(c.env, k);
-  await c.env.DB.prepare(
-    `INSERT INTO user_api_keys (user_id, provider, ciphertext, iv, last4, created_at) VALUES (?, 'elevenlabs', ?, ?, ?, ?)
-     ON CONFLICT(user_id, provider) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, last4 = excluded.last4, created_at = excluded.created_at`,
-  ).bind(c.get('user').id, ciphertext, iv, k.slice(-4), now()).run();
-  return c.json({ ok: true, last4: k.slice(-4) });
-});
-
-app.delete('/me/keys/elevenlabs', requireUser, async c => {
-  await c.env.DB.prepare(`DELETE FROM user_api_keys WHERE user_id = ? AND provider = 'elevenlabs'`).bind(c.get('user').id).run();
+app.post('/topup/orders/:id/cancel', requireUser, async c => {
+  await cancelOrder(c.env.DB, c.req.param('id'), { userId: c.get('user').id });
   return c.json({ ok: true });
 });
 
@@ -177,6 +168,7 @@ admin.get('/stats', async c => {
     period,
     minutesUsedThisMonth: round1(used.m),
     jobsThisMonth: used.n,
+    pendingOrders: (await db.prepare(`SELECT COUNT(*) AS n FROM topup_orders WHERE status = 'pending'`).first()).n,
     engine: {
       elevenlabsKey: (await companyKeyInfo(c.env)).source !== 'none',
       mock: (await getMockMode(c.env)).mock,
@@ -248,15 +240,14 @@ admin.get('/plans', async c => {
 const PLAN_FIELDS = {
   name: v => String(v).trim().slice(0, 50) || null,
   description: v => String(v).slice(0, 200),
-  engine: v => (['elevenlabs', 'elevenlabs_byok'].includes(v) ? v : null),
   monthly_minutes: v => (Number(v) >= 0 ? Number(v) : null),
-  unlimited: v => (v ? 1 : 0),
   max_video_seconds: v => (Number(v) > 0 ? Math.round(Number(v)) : null),
   export_quality: v => (['720p', '1080p', '4k'].includes(v) ? v : null),
   watermark: v => (v ? 1 : 0),
   max_projects: v => (Number(v) >= 0 ? Math.round(Number(v)) : null),
   render_mode: v => (['browser', 'server'].includes(v) ? v : null),
   price_lkr: v => (Number(v) >= 0 ? Math.round(Number(v)) : null),
+  price_usd: v => (Number(v) >= 0 ? Math.round(Number(v) * 100) / 100 : null),
   active: v => (v ? 1 : 0),
 };
 
@@ -280,6 +271,23 @@ const SETTINGS = {
   signup_bonus_minutes: v => (Number(v) >= 0 && Number(v) <= 1000 ? String(Number(v)) : null),
   signups_enabled: v => (v === true || v === '1' || v === 1 ? '1' : v === false || v === '0' || v === 0 ? '0' : null),
 };
+
+// ---- Extra minutes packs + orders ----
+admin.get('/topup/packs', async c => c.json({ packs: await listPacks(c.env.DB, { all: true }) }));
+admin.put('/topup/packs', async c => c.json({ packs: await savePacks(c.env.DB, (await body(c)).packs) }));
+admin.get('/topup/orders', async c => {
+  const st = c.req.query('status');
+  return c.json({ orders: await listOrders(c.env.DB, { status: ['pending', 'paid', 'cancelled'].includes(st) ? st : null, limit: 200 }) });
+});
+admin.post('/topup/orders/:id/paid', async c => {
+  const { note = '' } = await body(c).catch(() => ({}));
+  const order = await markOrderPaid(c.env.DB, c.req.param('id'), { method: 'manual', paidBy: c.get('user').id, note });
+  return c.json({ ok: true, order });
+});
+admin.post('/topup/orders/:id/cancel', async c => {
+  await cancelOrder(c.env.DB, c.req.param('id'));
+  return c.json({ ok: true });
+});
 
 admin.get('/settings', async c => {
   const { results } = await c.env.DB.prepare('SELECT key, value FROM settings').all();

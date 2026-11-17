@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { Link, useSession } from '../App.jsx';
-import PlanCard from '../components/PlanCard.jsx';
+import PlanCard, { CurrencyToggle, saveCurrency, savedCurrency } from '../components/PlanCard.jsx';
 
 export default function Home() {
   const { user } = useSession();
   const [plans, setPlans] = useState([]);
+  const [cur, setCur] = useState(savedCurrency);
+  const pickCur = c => { setCur(c); saveCurrency(c); };
   useEffect(() => { api('/plans').then(d => setPlans(d.plans)).catch(() => {}); }, []);
 
   return (
@@ -23,8 +25,9 @@ export default function Home() {
 
       <section>
         <h2 className="section-title">Plans</h2>
+        <div className="row center-row"><CurrencyToggle value={cur} onChange={pickCur} /></div>
         <div className="plans">
-          {plans.map(p => <PlanCard key={p.id} plan={p} />)}
+          {plans.map(p => <PlanCard key={p.id} plan={p} currency={cur} />)}
         </div>
       </section>
     </>

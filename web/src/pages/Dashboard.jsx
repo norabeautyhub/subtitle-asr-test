@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { api, fmtDate, fmtDuration, fmtMinutes } from '../api.js';
+import { api, fmtDate, fmtDuration, fmtHM, fmtMinutes } from '../api.js';
 import { Link, useSession } from '../App.jsx';
 
 const STATUS_LABEL = { committed: '✅ සාර්ථකයි', refunded: '↩ ආපහු දුන්නා', reserved: '⏳ Process වෙනවා' };
 const TYPE_LABEL = {
-  signup_bonus: 'Sign up bonus', purchase: 'මිලදී ගැනීම', admin: 'Admin', usage: 'පාවිච්චිය', refund: 'ආපහු ලැබුණා',
+  signup_bonus: 'Sign up bonus', purchase: 'Extra minutes මිලදී ගැනීම', admin: 'Admin', usage: 'පාවිච්චිය', refund: 'ආපහු ලැබුණා',
 };
 
 export default function Dashboard() {
@@ -33,14 +33,16 @@ export default function Dashboard() {
         <div className="card stat">
           <div className="muted small">පාවිච්චි කරන්න පුළුවන් විනාඩි</div>
           <div className="big accent">{balance.unlimited ? '∞' : fmtMinutes(balance.available)}</div>
-          <div className="muted small">{balance.unlimited ? 'ඔයාගේම ElevenLabs key එක — limit නෑ' : `Credits: ${fmtMinutes(balance.credits)}${plan.monthly_minutes > 0 ? ` · මේ මාසේ ඉතුරු: ${fmtMinutes(balance.allowanceLeft)}` : ''}`}</div>
+          <div className="muted small">{balance.unlimited ? 'Limit නෑ' : `මේ මාසේ ඉතුරු: ${fmtMinutes(balance.allowanceLeft)} · Extra minutes: ${fmtMinutes(balance.credits)}`}</div>
+          {!balance.unlimited && <Link to="/buy" className={`btn sm ${balance.available < 5 ? '' : 'ghost'}`} style={{ marginTop: 8 }}>⏱ Extra minutes ගන්න</Link>}
         </div>
         <div className="card stat">
-          <div className="muted small">මේ මාසේ ({balance.period})</div>
+          <div className="muted small">මේ මාසේ transcription ({balance.period})</div>
           {plan.monthly_minutes > 0 ? (
             <>
-              <div className="big">{fmtMinutes(balance.allowanceUsed)} <span className="muted small">/ {plan.monthly_minutes}</span></div>
-              <div className="bar"><div style={{ width: `${pct}%` }} /></div>
+              <div className="big">{fmtHM(balance.allowanceUsed)} <span className="muted small">/ {fmtHM(plan.monthly_minutes)}</span></div>
+              <div className={`bar ${pct >= 90 ? 'warn' : ''}`}><div style={{ width: `${pct}%` }} /></div>
+              {pct >= 100 && <div className="small" style={{ color: '#fbbf24', marginTop: 6 }}>මාසික කාලය ඉවරයි — Extra minutes වලින් පාවිච්චි වෙනවා</div>}
             </>
           ) : <div className="big">—</div>}
         </div>
