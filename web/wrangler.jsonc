@@ -21,6 +21,16 @@
     }
   ],
 
+  // Videos තියාගන්න තැන (R2). `npx wrangler r2 bucket create novi-subtitles-videos` එකෙන් හදන්න.
+  "r2_buckets": [
+    { "binding": "VIDEOS", "bucket_name": "novi-subtitles-videos" }
+  ],
+
+  // Secrets (keys) මෙතන දාන්න එපා! මේ commands වලින් දාන්න:
+  //   npx wrangler secret put ELEVENLABS_API_KEY
+  //   npx wrangler secret put KEY_ENCRYPTION_SECRET
+  // Local එකට: web/.dev.vars file එකේ (.dev.vars.example බලන්න)
+
   "vars": {
     "APP_NAME": "Novi Subtitles",
     // මේ emails වලින් register වෙන අය auto admin වෙනවා (comma වලින් වෙන් කරන්න)

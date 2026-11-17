@@ -15,6 +15,8 @@ test('seconds → minutes rounding', () => {
   assert.equal(secondsToMinutes(60), 1);
   assert.equal(secondsToMinutes(61), 1.1);
   assert.equal(secondsToMinutes(146), 2.5);
+  assert.equal(secondsToMinutes(12.04), 0.2, '0.5s grace');
+  assert.equal(secondsToMinutes(12.6), 0.3);
 });
 
 test('Basic: credits only, reserve → refund', async () => {

@@ -45,3 +45,29 @@ label.check{display:flex;gap:8px;align-items:center;color:var(--text)}label.chec
 .detail{border-color:var(--accent)}
 .narrow{max-width:520px}
 @media(max-width:640px){.header nav{gap:10px}.table{font-size:12px}}
+/* ---- Part 2: upload, projects ---- */
+.narrow-page{max-width:760px;margin:0 auto}
+.drop{display:block;border:2px dashed var(--line);border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;color:var(--text);margin-bottom:16px;transition:.15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:#151a28}
+.drop-icon{font-size:40px;margin-bottom:6px}
+.right{text-align:right}
+.big-bar{height:12px;margin:12px 0 6px}
+.btn.danger{color:#fca5a5!important;border-color:#7f1d1d}
+.projects{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:20px}
+.proj{display:flex;gap:14px;align-items:center;color:var(--text)!important;text-decoration:none!important;margin:0;transition:.15s}
+.proj:hover{border-color:var(--accent)}
+.proj-thumb{width:56px;height:56px;border-radius:10px;background:#1b2030;display:grid;place-items:center;font-size:26px;flex:none}
+.pill{display:inline-block;font-size:12px;border:1px solid var(--line);border-radius:99px;padding:1px 9px;margin-top:4px;color:var(--muted)}
+.pill.ok{color:var(--ok);border-color:#14532d}
+.empty-link{display:block;color:var(--text)!important;text-decoration:none!important}
+.project-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(300px,1fr);gap:18px;margin-top:16px;align-items:start}
+@media(max-width:900px){.project-grid{grid-template-columns:1fr}}
+.vwrap{position:relative;background:#000;border-radius:14px;overflow:hidden}
+.vwrap video{width:100%;display:block;max-height:75vh}
+.cap{position:absolute;left:5%;right:5%;bottom:13%;text-align:center;font-size:clamp(18px,3vw,36px);font-weight:700;text-shadow:0 0 6px #000,0 2px 3px #000;pointer-events:none;line-height:1.35}
+.cap span.on{color:#facc15}
+.words{display:flex;flex-wrap:wrap;gap:4px;max-height:360px;overflow:auto}
+.word{background:#1b2030;border:1px solid var(--line);color:var(--text);border-radius:6px;padding:2px 7px;font:inherit;font-size:14px;cursor:pointer}
+.word:hover{border-color:var(--accent)}
+.keybox{background:#0b0d12;border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.setup div{margin:3px 0;font-size:14px}

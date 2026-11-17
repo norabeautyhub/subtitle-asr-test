@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { api, fmtDate, fmtMinutes } from '../api.js';
-import { useSession } from '../App.jsx';
+import { api, fmtDate, fmtDuration, fmtMinutes } from '../api.js';
+import { Link, useSession } from '../App.jsx';
 
+const STATUS_LABEL = { committed: '✅ සාර්ථකයි', refunded: '↩ ආපහු දුන්නා', reserved: '⏳ Process වෙනවා' };
 const TYPE_LABEL = {
   signup_bonus: 'Sign up bonus', purchase: 'මිලදී ගැනීම', admin: 'Admin', usage: 'පාවිච්චිය', refund: 'ආපහු ලැබුණා',
 };
@@ -9,7 +10,12 @@ const TYPE_LABEL = {
 export default function Dashboard() {
   const { user, plan, balance, refresh } = useSession();
   const [hist, setHist] = useState({ ledger: [], usage: [] });
-  useEffect(() => { refresh(); api('/me/history').then(setHist).catch(() => {}); }, [refresh]);
+  const [projects, setProjects] = useState(null);
+  useEffect(() => {
+    refresh();
+    api('/me/history').then(setHist).catch(() => {});
+    api('/projects').then(d => setProjects(d.projects)).catch(() => setProjects([]));
+  }, [refresh]);
 
   if (!plan || !balance) return null;
   const pct = plan.monthly_minutes > 0 ? Math.min(100, (balance.allowanceUsed / plan.monthly_minutes) * 100) : 0;
@@ -40,9 +46,28 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card soon">
-        <h3>🎬 Video upload සහ editor එක</h3>
-        <p className="muted">ඊළඟ update එකේ (Phase 1 — කොටස 2 සහ 3) එනවා.</p>
+      <div className="row between">
+        <h2 style={{ margin: '10px 0' }}>ඔයාගේ videos</h2>
+        <Link to="/new" className="btn">➕ අලුත් video එකක්</Link>
+      </div>
+      {projects && projects.length === 0 && (
+        <Link to="/new" className="card soon empty-link">
+          <div className="drop-icon">🎬</div>
+          <h3>පළවෙනි video එක upload කරන්න</h3>
+          <p className="muted">Video එක upload කරලා එක click එකකින් සිංහල subtitles හදන්න</p>
+        </Link>
+      )}
+      <div className="projects">
+        {projects?.map(p => (
+          <Link key={p.id} to={`/projects/${p.id}`} className="card proj">
+            <div className="proj-thumb">🎞</div>
+            <div>
+              <b>{p.title}</b>
+              <div className="muted small">{fmtDuration(p.duration)} · {fmtDate(p.created_at)}</div>
+              <span className={`pill ${p.has_subtitles ? 'ok' : ''}`}>{p.has_subtitles ? '✅ Subtitles තියෙනවා' : 'Subtitles නෑ'}</span>
+            </div>
+          </Link>
+        ))}
       </div>
 
       <div className="grid2">
@@ -74,7 +99,7 @@ export default function Dashboard() {
                   <td>{fmtDate(u.created_at)}</td>
                   <td>{u.description || '—'}</td>
                   <td>{fmtMinutes(u.minutes)}</td>
-                  <td>{u.status}</td>
+                  <td>{STATUS_LABEL[u.status] || u.status}</td>
                 </tr>
               ))}
             </tbody>

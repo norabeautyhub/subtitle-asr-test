@@ -5,6 +5,8 @@ import {
   requireAdmin, requireUser, validateCredentials, verifyPassword,
 } from './auth.js';
 import { addCredits, getBalance, getPlan, getSetting } from './credits.js';
+import projects from './projects.js';
+import { encryptSecret } from './secrets.js';
 import { HttpError, newId, now, round1 } from './util.js';
 
 const app = new Hono().basePath('/api');
@@ -17,12 +19,14 @@ app.onError((err, c) => {
 });
 app.notFound(c => c.json({ error: 'Not found' }, 404));
 
-// වෙනත් websites වලින් එන form submit (CSRF) නවත්වන්න: POST/PUT/PATCH/DELETE වලට JSON විතරයි
+// වෙනත් websites වලින් එන form submit (CSRF) නවත්වන්න:
+// POST/PUT/PATCH/DELETE වලට JSON, නැත්නම් (video/audio upload) අපේ "X-Requested-With: novi" header එක ඕනේ.
+// වෙන website එකකට මේ දෙකම CORS preflight නැතුව යවන්න බෑ.
 app.use('*', async (c, next) => {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method)) {
-    if (!(c.req.header('content-type') || '').includes('application/json')) {
-      throw new HttpError(415, 'JSON request එකක් ඕනේ');
-    }
+    const isJson = (c.req.header('content-type') || '').includes('application/json');
+    const isOurs = c.req.header('x-requested-with') === 'novi';
+    if (!isJson && !isOurs) throw new HttpError(415, 'JSON request එකක් ඕනේ');
   }
   await next();
 });
@@ -126,6 +130,31 @@ app.post('/me/password', requireUser, async c => {
   return c.json({ ok: true });
 });
 
+// ---------------- Premium: user ගේ ElevenLabs API key ----------------
+app.get('/me/keys', requireUser, async c => {
+  const k = await c.env.DB.prepare(`SELECT provider, last4, created_at FROM user_api_keys WHERE user_id = ?`).bind(c.get('user').id).all();
+  return c.json({ keys: k.results });
+});
+
+app.put('/me/keys/elevenlabs', requireUser, async c => {
+  const { key } = await body(c);
+  const k = String(key || '').trim();
+  if (k.length < 20 || k.length > 200 || /\s/.test(k)) throw new HttpError(400, 'API key එක වැරදියි — ElevenLabs එකෙන් copy කරපු key එක (sk_...) paste කරන්න');
+  const { ciphertext, iv } = await encryptSecret(c.env, k);
+  await c.env.DB.prepare(
+    `INSERT INTO user_api_keys (user_id, provider, ciphertext, iv, last4, created_at) VALUES (?, 'elevenlabs', ?, ?, ?, ?)
+     ON CONFLICT(user_id, provider) DO UPDATE SET ciphertext = excluded.ciphertext, iv = excluded.iv, last4 = excluded.last4, created_at = excluded.created_at`,
+  ).bind(c.get('user').id, ciphertext, iv, k.slice(-4), now()).run();
+  return c.json({ ok: true, last4: k.slice(-4) });
+});
+
+app.delete('/me/keys/elevenlabs', requireUser, async c => {
+  await c.env.DB.prepare(`DELETE FROM user_api_keys WHERE user_id = ? AND provider = 'elevenlabs'`).bind(c.get('user').id).run();
+  return c.json({ ok: true });
+});
+
+app.route('/projects', projects);
+
 // ---------------- Admin ----------------
 const admin = new Hono();
 admin.use('*', requireAdmin);
@@ -144,6 +173,12 @@ admin.get('/stats', async c => {
     period,
     minutesUsedThisMonth: round1(used.m),
     jobsThisMonth: used.n,
+    engine: {
+      elevenlabsKey: !!c.env.ELEVENLABS_API_KEY,
+      mock: c.env.ELEVENLABS_MOCK === '1',
+      encryptionSecret: !!c.env.KEY_ENCRYPTION_SECRET,
+      storage: !!c.env.VIDEOS,
+    },
   });
 });
 

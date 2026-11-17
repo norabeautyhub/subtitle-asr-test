@@ -1,11 +1,37 @@
 // Server API එකට calls
 export async function api(path, { method = 'GET', body } = {}) {
+  const headers = { 'X-Requested-With': 'novi' };
+  if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
   });
+  return handle(res);
+}
+
+/** Binary data (video කෑලි / audio) යවනවා. onProgress(0..1) */
+export function apiBinary(path, data, { method = 'POST', contentType = 'application/octet-stream', onProgress } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, `/api${path}`);
+    xhr.setRequestHeader('X-Requested-With', 'novi');
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.withCredentials = true;
+    if (onProgress) xhr.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      let d = {};
+      try { d = JSON.parse(xhr.responseText); } catch { /* empty */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(d);
+      else { const err = new Error(d.error || `Error ${xhr.status}`); err.status = xhr.status; reject(err); }
+    };
+    xhr.onerror = () => reject(new Error('Internet connection error — ආයේ try කරන්න'));
+    xhr.send(data);
+  });
+}
+
+async function handle(res) {
   let data = {};
   try { data = await res.json(); } catch { /* empty */ }
   if (!res.ok) {
@@ -18,3 +44,10 @@ export async function api(path, { method = 'GET', body } = {}) {
 
 export const fmtMinutes = m => (m === null || m === undefined ? '∞' : `${Number(m).toLocaleString('en-US', { maximumFractionDigits: 1 })}`);
 export const fmtDate = ts => (ts ? new Date(ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+export const fmtDuration = s => {
+  s = Math.round(s || 0);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+export const fmtBytes = b => (b > 1e9 ? `${(b / 1e9).toFixed(2)} GB` : `${(b / 1e6).toFixed(1)} MB`);
+/** Server එකේ ගණනයට සමානයි (worker/util.js) */
+export const secondsToMinutes = s => Math.max(0.1, Math.ceil(((Math.max(0, s - 0.5) / 60) * 10) - 1e-9) / 10);

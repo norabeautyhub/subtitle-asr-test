@@ -1,0 +1,11 @@
+# Local testing වලට විතරයි. මේ file එක ".dev.vars" නමින් copy කරලා values දාන්න.
+# .dev.vars GitHub එකට යන්නේ නෑ.
+
+# අපේ ElevenLabs API key එක (Basic/Standard plans වලට)
+ELEVENLABS_API_KEY=
+
+# Premium users ලගේ keys encrypt කරන්න — අකුරු 32+ random text එකක්
+KEY_ENCRYPTION_SECRET=change-me-to-a-long-random-string-1234567890
+
+# 1 = ඇත්ත ElevenLabs එකට යන්නේ නෑ, ව්‍යාජ subtitles (credits වැය නොකර test කරන්න)
+ELEVENLABS_MOCK=1

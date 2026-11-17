@@ -4,6 +4,9 @@ import Home from './pages/Home.jsx';
 import { Login, Register } from './pages/Auth.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Admin from './pages/Admin.jsx';
+import NewProject from './pages/NewProject.jsx';
+import Project from './pages/Project.jsx';
+import Settings from './pages/Settings.jsx';
 
 // ---------------- පොඩි router එකක් ----------------
 const RouterCtx = createContext(null);
@@ -61,6 +64,9 @@ export default function App() {
   else if (path === '/login') page = user ? <Redirect to="/dashboard" /> : <Login />;
   else if (path === '/register') page = user ? <Redirect to="/dashboard" /> : <Register />;
   else if (path === '/dashboard') page = user ? <Dashboard /> : <Redirect to="/login" />;
+  else if (path === '/new') page = user ? <NewProject /> : <Redirect to="/login" />;
+  else if (path === '/settings') page = user ? <Settings /> : <Redirect to="/login" />;
+  else if (path.startsWith('/projects/')) page = user ? <Project key={path} id={path.split('/')[2]} /> : <Redirect to="/login" />;
   else if (path.startsWith('/admin')) page = !user ? <Redirect to="/login" /> : user.role === 'admin' ? <Admin /> : <NotFound />;
   else if (path === '/') page = <Home />;
   else page = <NotFound />;
@@ -96,6 +102,7 @@ function Header() {
           {user ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+              <Link to="/settings">Settings</Link>
               {user.role === 'admin' && <Link to="/admin">Admin</Link>}
               <button className="btn ghost sm" onClick={logout}>Logout</button>
             </>

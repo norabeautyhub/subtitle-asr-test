@@ -41,6 +41,16 @@ function Overview() {
       <div className="card stat"><div className="muted small">මේ මාසේ ({s.period}) process කළ විනාඩි</div><div className="big accent">{fmtMinutes(s.minutesUsedThisMonth)}</div></div>
       <div className="card stat"><div className="muted small">මේ මාසේ videos</div><div className="big">{s.jobsThisMonth}</div>
         <div className="muted small">ElevenLabs වියදම ≈ ${(s.minutesUsedThisMonth / 60 * 0.22).toFixed(2)}</div></div>
+      {s.engine && (
+        <div className="card stat">
+          <div className="muted small">Server setup</div>
+          <div className="setup">
+            <div>{s.engine.mock ? '⚠️ Mock mode (ඇත්ත ElevenLabs නෑ)' : s.engine.elevenlabsKey ? '✅ ElevenLabs key' : '❌ ElevenLabs key නෑ'}</div>
+            <div>{s.engine.storage ? '✅ Video storage (R2)' : '❌ R2 storage නෑ'}</div>
+            <div>{s.engine.encryptionSecret ? '✅ Encryption secret' : '❌ KEY_ENCRYPTION_SECRET නෑ'}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

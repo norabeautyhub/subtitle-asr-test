@@ -1,4 +1,4 @@
-# Novi Subtitles — Web App (Phase 1, කොටස 1: පදනම)
+# Novi Subtitles — Web App (Phase 1: කොටස 1 + 2)
 
 සිංහල සහ English auto subtitles SaaS එක. Cloudflare Workers + D1 database + React.
 
@@ -11,7 +11,15 @@
   - **Users:** search, plan මාරු කිරීම, admin කිරීම, block කිරීම, **credits එකතු / අඩු කිරීම**
   - **Plans:** හැම plan එකකම engine, මාසික විනාඩි, video දිග, export quality, watermark, මිල වෙනස් කිරීම
   - **Settings:** Sign up bonus විනාඩි, sign up on/off
-- ⏱ Minutes credit system: (plan එකේ මාසික විනාඩි) + (credits). Video upload එක එන්නේ ඊළඟ කොටසේ.
+- ⏱ Minutes credit system: (plan එකේ මාසික විනාඩි) + (credits)
+
+### කොටස 2 (අලුත්)
+- 🎬 **Video upload** — 10MB කෑලි විදිහට Cloudflare R2 එකට, progress bar එක්ක (network error ආවොත් auto retry)
+- ✨ **Subtitles හදන්න** — audio එක browser එකේම වෙන් කරලා (video එක ආයේ upload වෙන්නේ නෑ), දිග videos නිහඬ තැන්වලින් විනාඩි 5 කෑලිවලට කපලා ElevenLabs (scribe_v3 → fail නම් scribe_v2) එකට යවනවා
+  - Credits අඩු වෙන්නේ server එක audio එකේ දිග ගණන් කරලා (browser එක කියන දිග විශ්වාස කරන්නේ නෑ); fail වුණොත් ආපහු එනවා
+- 👀 Video එක උඩ subtitles preview (කියවෙන වචනය කහ පාටින්), වචනයක් click කළොත් ඒ තැනට යනවා
+- ⬇ **SRT download**
+- ⚙️ **Settings** — Premium users ලගේ ElevenLabs key එක (AES-GCM encrypt කරලා), password වෙනස් කිරීම
 
 ---
 
@@ -27,6 +35,13 @@ npm install
 ```
 npm run db:migrate:local
 ```
+**Local settings file එක (එක පාරයි):**
+```
+copy .dev.vars.example .dev.vars
+```
+- `ELEVENLABS_MOCK=1` තියෙනකම් ඇත්ත ElevenLabs එකට යන්නේ නෑ — ව්‍යාජ subtitles එනවා (credits වැය නොකර test කරන්න)
+- ඇත්ත සිංහල subtitles බලන්න: `notepad .dev.vars` → `ELEVENLABS_API_KEY=` එකට ඔයාගේ key එක දාලා, `ELEVENLABS_MOCK=0` කරන්න
+
 ```
 npm run dev
 ```
@@ -62,6 +77,28 @@ notepad wrangler.jsonc
   (මේක නොදැම්මොත් ඔයාට කලින් වෙන කෙනෙක් sign up වුණොත් එයා admin වෙනවා!)
 - **Ctrl + S** → close
 
+### 3.5 Video storage (R2) සහ secrets
+```
+npx wrangler r2 bucket create novi-subtitles-videos
+```
+(R2 පළවෙනි පාර නම් Cloudflare dashboard → **R2** එකට ගිහින් enable කරන්න ඕනේ වෙන්න පුළුවන් — free ප්‍රමාණයක් තියෙනවා, ඒත් card එකක් ඉල්ලන්න පුළුවන්.)
+
+අපේ ElevenLabs key එක (Basic/Standard plans වලට):
+```
+npx wrangler secret put ELEVENLABS_API_KEY
+```
+→ key එක paste කරලා Enter (පේන්නේ නෑ, ඒක සාමාන්‍යයි)
+
+Premium keys encrypt කරන secret එක — මුලින්ම random එකක් හදන්න:
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+ඒක copy කරලා:
+```
+npx wrangler secret put KEY_ENCRYPTION_SECRET
+```
+→ paste → Enter. ⚠️ මේක පස්සේ වෙනස් කළොත් save කරපු Premium keys ආයේ දාන්න වෙනවා.
+
 ### 4. Database tables හදන්න
 ```
 npm run db:migrate:remote
@@ -80,9 +117,12 @@ npm run deploy
 ### ඊළඟ පාර update එකක් deploy කරන්න
 ```
 cd web
+npm run db:migrate:remote
 npm run deploy
 ```
-(අලුත් `migrations` file එකක් ආවොත් ඊට කලින් `npm run db:migrate:remote`)
+(`db:migrate:remote` එක අලුත් migrations තියෙනවා නම් විතරයි මොනවා හරි කරන්නේ — හැම පාරම ගැහුවට කමක් නෑ)
+
+Admin panel → Overview එකේ **ElevenLabs key / Storage / Encryption** හරියට set වෙලාද කියලා පේනවා.
 
 ---
 
@@ -107,8 +147,9 @@ npm test
 ## 📁 Files
 ```
 web/
-├── worker/          ← Server (API): index.js (routes), auth.js (login), credits.js (විනාඩි system)
-├── src/             ← Website (React): pages/, components/
+├── worker/          ← Server (API): index.js (routes), auth.js (login), credits.js (විනාඩි system),
+│                       projects.js (upload/subtitles), engines/ (ElevenLabs, mock — පස්සේ Whisper), secrets.js, wav.js
+├── src/             ← Website (React): pages/, components/, lib/ (audio, subtitles)
 ├── migrations/      ← Database tables
 ├── test/            ← Tests
 └── wrangler.jsonc   ← Cloudflare settings

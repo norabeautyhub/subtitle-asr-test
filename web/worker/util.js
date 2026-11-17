@@ -15,8 +15,8 @@ export function newId(prefix = '') {
 
 export const round1 = n => Math.round(n * 10) / 10;
 
-/** තත්පර → විනාඩි (0.1 විනාඩියට උඩට round කරනවා, අවම 0.1) */
-export const secondsToMinutes = s => Math.max(0.1, Math.ceil((s / 60) * 10) / 10);
+/** තත්පර → විනාඩි: 0.1 විනාඩියට (තත්පර 6) උඩට round කරනවා, තත්පර 0.5ක සහනයක් එක්ක. අවම 0.1 */
+export const secondsToMinutes = s => Math.max(0.1, Math.ceil(((Math.max(0, s - 0.5) / 60) * 10) - 1e-9) / 10);
 
 export class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
