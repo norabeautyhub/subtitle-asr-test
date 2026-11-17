@@ -37,7 +37,8 @@
     // ⚠️ Deploy කරන්න කලින් ඔයාගේ email එක දාන්න. හිස් නම් පළවෙනි user එක admin වෙනවා.
     "ADMIN_EMAILS": "",
     // Password hashing rounds (10000–100000). Cloudflare free plan එකේ login error 1102 ආවොත් 20000 කරන්න.
-    "PASSWORD_ITERATIONS": "100000"
+    "PASSWORD_ITERATIONS": "100000",
+"REMOTION_LICENSE_KEY": "free-license"
   },
 
   "observability": { "enabled": true }

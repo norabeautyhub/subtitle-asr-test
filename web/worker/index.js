@@ -102,7 +102,10 @@ app.get('/me', async c => {
   const user = await loadUser(c);
   if (!user) return c.json({ user: null });
   const plan = await getPlan(c.env.DB, user.plan_id);
-  return c.json({ user: publicUser(user), plan: publicPlan(plan), balance: await getBalance(c.env.DB, user, plan) });
+  return c.json({
+    user: publicUser(user), plan: publicPlan(plan), balance: await getBalance(c.env.DB, user, plan),
+    config: { remotionLicenseKey: c.env.REMOTION_LICENSE_KEY || 'free-license' },
+  });
 });
 
 app.get('/me/history', requireUser, async c => {

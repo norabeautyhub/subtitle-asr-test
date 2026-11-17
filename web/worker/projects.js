@@ -41,9 +41,12 @@ p.get('/', async c => {
 p.get('/:id', async c => {
   const proj = await ownProject(c);
   const t = await c.env.DB.prepare('SELECT * FROM transcripts WHERE project_id = ?').bind(proj.id).first();
+  let editor = null;
+  try { editor = proj.editor_json ? JSON.parse(proj.editor_json) : null; } catch { editor = null; }
   return c.json({
     project: publicProject(proj),
     transcript: t ? { language: t.language, engine: t.engine, words: JSON.parse(t.words_json), text: t.text, updated_at: t.updated_at } : null,
+    editor,
   });
 });
 
@@ -185,6 +188,27 @@ p.post('/:id/transcribe-chunk', async c => {
   await commitUsage(db, usageId);
   const words = res.words.map(w => ({ text: w.text, start: +(w.start + offset).toFixed(3), end: +(w.end + offset).toFixed(3) }));
   return c.json({ words, text: res.text, model: res.model, minutes });
+});
+
+// ---------------- Editor save (lines + style) — auto save ----------------
+const MAX_EDITOR_BYTES = 1_500_000;
+p.put('/:id/editor', async c => {
+  const proj = await ownProject(c);
+  const raw = await c.req.text();
+  if (raw.length > MAX_EDITOR_BYTES) throw new HttpError(413, 'Editor data එක ලොකු වැඩියි');
+  let body;
+  try { body = JSON.parse(raw); } catch { throw new HttpError(400, 'JSON එක වැරදියි'); }
+  const doc = body?.doc;
+  if (!doc || typeof doc !== 'object' || !Array.isArray(doc.lines) || typeof doc.style !== 'object') throw new HttpError(400, 'Editor data වැරදියි');
+  if (doc.lines.length > 10000) throw new HttpError(400, 'Lines වැඩියි');
+  for (const l of doc.lines) {
+    if (!Array.isArray(l.words)) throw new HttpError(400, 'Line එකක් වැරදියි');
+    for (const w of l.words) {
+      if (typeof w.text !== 'string' || !Number.isFinite(w.start) || !Number.isFinite(w.end)) throw new HttpError(400, 'වචනයක් වැරදියි');
+    }
+  }
+  await c.env.DB.prepare('UPDATE projects SET editor_json = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(doc), now(), proj.id).run();
+  return c.json({ ok: true, saved_at: now() });
 });
 
 // ---------------- Subtitles save (generate කළාට පස්සේ / editor එකෙන්) ----------------

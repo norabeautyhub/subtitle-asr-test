@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { api, apiBinary, fmtBytes, fmtDate, fmtDuration, fmtMinutes, secondsToMinutes } from '../api.js';
 import { Link, useRouter, useSession } from '../App.jsx';
 import VideoWithCaptions from '../components/VideoWithCaptions.jsx';
+const Editor = lazy(() => import('../editor/Editor.jsx'));
 import { decodeToMono16k, encodeWav, splitAtSilence } from '../lib/audio.js';
 import { localFiles } from '../lib/localFiles.js';
-import { downloadText, toSrt } from '../lib/subtitles.js';
 
 const LANGS = [['si', 'සිංහල'], ['en', 'English'], ['auto', 'Auto (භාෂාව හොයාගන්න)']];
 
 export default function Project({ id }) {
-  const { balance, plan, refresh } = useSession();
+  const { balance, plan, refresh, config } = useSession();
   const { navigate } = useRouter();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -73,6 +73,37 @@ export default function Project({ id }) {
 
   const seek = t => { if (videoRef.current) { videoRef.current.currentTime = t; videoRef.current.play(); } };
 
+  const generateCard = (
+    <div className={transcript ? 'gen-inline' : 'card'}>
+      <h3>{transcript ? '🔄 Subtitles ආයේ AI එකෙන් හදන්න' : '✨ Subtitles හදන්න'}</h3>
+      {!job && (
+        <>
+          <label>Video එකේ භාෂාව
+            <select value={lang} onChange={e => setLang(e.target.value)}>
+              {LANGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
+          <p className="small muted">
+            {balance?.unlimited ? 'ඔයාගේ ElevenLabs key එකෙන් — limit නෑ' : <>අඩු වෙන විනාඩි: <b>{fmtMinutes(need)}</b> · ඔයාට තියෙන්නේ: <b>{fmtMinutes(balance?.available)}</b></>}
+          </p>
+          {!enough && <div className="alert error">විනාඩි මදි. Credits ගන්න admin ට කතා කරන්න.</div>}
+          <button className={`btn ${transcript ? 'ghost sm' : 'full'}`} disabled={!enough} onClick={generate}>
+            {transcript ? '🔄 ආයේ හදන්න (edit කරපු text මැකෙනවා)' : '✨ Subtitles හදන්න'}
+          </button>
+          {isByok && <p className="small muted">Premium: ඔයාගේ ElevenLabs key එක <Link to="/settings">Settings</Link> වල දාලා තියෙන්න ඕනේ.</p>}
+        </>
+      )}
+      {job && (
+        <>
+          <div className="bar big-bar"><div style={{ width: `${job.pct * 100}%` }} /></div>
+          <p className="small">{job.step}</p>
+          <p className="small muted">මේ page එක close කරන්න එපා.</p>
+        </>
+      )}
+      {error && <div className="alert error">{error}</div>}
+    </div>
+  );
+
   return (
     <div className="project">
       <div className="row between">
@@ -84,55 +115,17 @@ export default function Project({ id }) {
         <button className="btn ghost sm danger" onClick={remove}>🗑 Delete</button>
       </div>
 
-      <div className="project-grid">
-        <VideoWithCaptions src={`/api/projects/${id}/video`} words={transcript?.words} videoRef={videoRef} />
-
-        <div>
-          <div className="card">
-            <h3>{transcript ? '✅ Subtitles හදලා ඉවරයි' : 'Subtitles හදන්න'}</h3>
-            {!job && (
-              <>
-                <label>Video එකේ භාෂාව
-                  <select value={lang} onChange={e => setLang(e.target.value)}>
-                    {LANGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                  </select>
-                </label>
-                <p className="small muted">
-                  {balance?.unlimited ? 'ඔයාගේ ElevenLabs key එකෙන් — limit නෑ' : <>අඩු වෙන විනාඩි: <b>{fmtMinutes(need)}</b> · ඔයාට තියෙන්නේ: <b>{fmtMinutes(balance?.available)}</b></>}
-                </p>
-                {!enough && <div className="alert error">විනාඩි මදි. Credits ගන්න admin ට කතා කරන්න.</div>}
-                <button className="btn full" disabled={!enough} onClick={generate}>
-                  {transcript ? '🔄 ආයේ හදන්න' : '✨ Subtitles හදන්න'}
-                </button>
-                {isByok && <p className="small muted">Premium: ඔයාගේ ElevenLabs key එක <Link to="/settings">Settings</Link> වල දාලා තියෙන්න ඕනේ.</p>}
-              </>
-            )}
-            {job && (
-              <>
-                <div className="bar big-bar"><div style={{ width: `${job.pct * 100}%` }} /></div>
-                <p className="small">{job.step}</p>
-                <p className="small muted">මේ page එක close කරන්න එපා.</p>
-              </>
-            )}
-            {error && <div className="alert error">{error}</div>}
-          </div>
-
-          {transcript && (
-            <div className="card">
-              <div className="row between">
-                <h3>Subtitles ({transcript.words.length} වචන)</h3>
-                <button className="btn sm" onClick={() => downloadText(`${project.title}.srt`, toSrt(transcript.words))}>⬇ SRT</button>
-              </div>
-              <p className="muted small">වචනයක් click කළොත් video එක ඒ තැනට යනවා. Edit කරන්න, fonts, animations — ඊළඟ update එකේ (Editor).</p>
-              <div className="words">
-                {transcript.words.map((w, i) => (
-                  <button key={i} className="word" onClick={() => seek(w.start)} title={`${w.start.toFixed(2)}s`}>{w.text}</button>
-                ))}
-              </div>
-            </div>
-          )}
+      {transcript ? (
+        <Suspense fallback={<div className="card center muted">Editor එක load වෙනවා...</div>}>
+        <Editor key={transcript.updated_at} project={project} transcript={transcript} saved={data.editor}
+          plan={plan} licenseKey={config?.remotionLicenseKey} generatePanel={generateCard} />
+        </Suspense>
+      ) : (
+        <div className="project-grid">
+          <VideoWithCaptions src={`/api/projects/${id}/video`} words={[]} videoRef={videoRef} />
+          <div>{generateCard}</div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

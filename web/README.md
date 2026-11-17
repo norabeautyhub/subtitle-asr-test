@@ -1,4 +1,4 @@
-# Novi Subtitles — Web App (Phase 1: කොටස 1 + 2)
+# Novi Subtitles — Web App (Phase 1: කොටස 1 – 4)
 
 සිංහල සහ English auto subtitles SaaS එක. Cloudflare Workers + D1 database + React.
 
@@ -20,6 +20,21 @@
 - 👀 Video එක උඩ subtitles preview (කියවෙන වචනය කහ පාටින්), වචනයක් click කළොත් ඒ තැනට යනවා
 - ⬇ **SRT download**
 - ⚙️ **Settings** — Premium users ලගේ ElevenLabs key එක (AES-GCM encrypt කරලා), password වෙනස් කිරීම
+
+### කොටස 3 — Editor (අලුත්)
+- ✏️ **Text edit** — line එකක් click කරලා text වෙනස් කරන්න. **Helakuru වගේ Singlish** (`mama gedhara yanawa` + space → `මම ගෙදර යනව`), suggestions bar එක (`යනවා`, `ට/ත`, `ද/ඩ`...), Ctrl + Space → English / සිංහල
+- ✂ Split / ⤵ Merge / 🗑 Delete lines, Start / End timing ±0.1s
+- 🎨 **Style** — Templates 5ක් (TikTok Bold, Clean White, Karaoke, News Box, Neon Glow) + හැම දේම වෙනස් කරන්න පුළුවන්:
+  සිංහල font 5 / English font 12, size, සිංහල අකුරු size, thickness, letter spacing, line height, UPPERCASE,
+  පාට, gradient, outline, shadow, glow, background box, කියවෙන වචනය highlight (color / scale / box / underline),
+  animations (fade, pop, slide, bounce, typewriter, වචනෙන් වචනෙ), position (video එක උඩ ✥ drag කරන්න), line එකකට වචන / අකුරු ගණන
+- ↶ Undo / ↷ Redo (Ctrl + Z / Ctrl + Y), 💾 auto save (තත්පර 1.2න්)
+
+### කොටස 4 — Export (අලුත්)
+- 🎬 **MP4 export** — Subtitles video එකට burn කරලා MP4 එකක් (H.264 + AAC). Render වෙන්නේ user ගේ browser එකේම (server වියදමක් නෑ)
+  - Quality / watermark plan එක අනුව (Admin → Plans)
+  - Chrome / Edge අලුත් version එකක් ඕනේ. Render වෙද්දී tab එක open කරලා තියන්න
+- 📄 SRT / VTT download (edit කරපු text එකෙන්)
 
 ---
 
@@ -132,6 +147,12 @@ Cloudflare dashboard → **Workers & Pages** → **novi-subtitles** → **Settin
 
 ---
 
+## 🎬 Remotion license (MP4 export)
+MP4 export එකට Remotion කියන library එක පාවිච්චි කරනවා. ඒකේ license එක:
+- **සේවකයෝ 3 දෙනෙක් හෝ අඩු company** → නොමිලේ. `wrangler.jsonc` එකේ `"REMOTION_LICENSE_KEY": "free-license"` තියන්න.
+- **3ට වඩා වැඩි** → remotion.pro එකෙන් "Automators" license එක ගන්න (render එකකට $0.01, අවම $100/මාසෙට). ලැබෙන key එක `REMOTION_LICENSE_KEY` එකට දාන්න.
+- විස්තර: https://www.remotion.dev/docs/license
+
 ## ⚠️ Cloudflare free plan එක ගැන
 Free plan එකේ request එකකට CPU කාලය 10ms විතරයි. Login/Sign up වෙලාවට **error 1102** ආවොත්:
 - **හොඳම විසඳුම:** Workers Paid plan ($5/මාසෙට) — ඊළඟ කොටස් (video render) වලටත් ඒක ඕනේ
@@ -149,7 +170,8 @@ npm test
 web/
 ├── worker/          ← Server (API): index.js (routes), auth.js (login), credits.js (විනාඩි system),
 │                       projects.js (upload/subtitles), engines/ (ElevenLabs, mock — පස්සේ Whisper), secrets.js, wav.js
-├── src/             ← Website (React): pages/, components/, lib/ (audio, subtitles)
+├── src/             ← Website (React): pages/, components/, lib/ (audio, subtitles),
+│                       editor/ (Editor, Singlish, styles, fonts, MP4 export)
 ├── migrations/      ← Database tables
 ├── test/            ← Tests
 └── wrangler.jsonc   ← Cloudflare settings
