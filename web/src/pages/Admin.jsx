@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, fmtDate, fmtMinutes } from '../api.js';
 import { useSession } from '../App.jsx';
 
@@ -24,7 +24,12 @@ export default function Admin() {
 
 function useToast() {
   const [msg, setMsg] = useState(null);
-  const show = (text, kind = 'ok') => { setMsg({ text, kind }); setTimeout(() => setMsg(null), 3000); };
+  const timer = useRef(null);
+  const show = (text, kind = 'ok') => {
+    clearTimeout(timer.current);
+    setMsg({ text, kind });
+    timer.current = setTimeout(() => setMsg(null), kind === 'ok' ? 3000 : 6000);
+  };
   const el = msg && <div className={`alert ${msg.kind === 'ok' ? 'ok' : 'error'}`}>{msg.text}</div>;
   return [el, show];
 }
@@ -45,7 +50,7 @@ function Overview() {
         <div className="card stat">
           <div className="muted small">Server setup</div>
           <div className="setup">
-            <div>{s.engine.mock ? '⚠️ Mock mode (ඇත්ත ElevenLabs නෑ)' : s.engine.elevenlabsKey ? '✅ ElevenLabs key' : '❌ ElevenLabs key නෑ'}</div>
+            <div>{s.engine.mock ? '🧪 Test mode ON (ඇත්ත ElevenLabs නෑ — Settings tab එකෙන් off කරන්න)' : s.engine.elevenlabsKey ? '✅ ElevenLabs key' : '❌ ElevenLabs key නෑ'}</div>
             <div>{s.engine.storage ? '✅ Video storage (R2)' : '❌ R2 storage නෑ'}</div>
             <div>{s.engine.encryptionSecret ? '✅ Encryption secret' : '❌ KEY_ENCRYPTION_SECRET නෑ'}</div>
           </div>
@@ -233,7 +238,10 @@ function Settings() {
     catch (err) { show(err.message, 'err'); }
   };
   return (
-    <form className="card narrow" onSubmit={save}>
+    <div className="narrow">
+    <ElevenLabsSettings />
+    <form className="card" onSubmit={save}>
+      <h3>👥 Sign up</h3>
       {toast}
       <label>Sign up bonus (විනාඩි) — අලුත් users ලට ලැබෙන free විනාඩි
         <input type="number" min="0" step="0.5" value={s.signup_bonus_minutes} onChange={e => setS({ ...s, signup_bonus_minutes: e.target.value })} />
@@ -244,5 +252,60 @@ function Settings() {
       </label>
       <button className="btn">Save</button>
     </form>
+    </div>
+  );
+}
+
+function ElevenLabsSettings() {
+  const [d, setD] = useState(null);
+  const [key, setKey] = useState('');
+  const [busy, setBusy] = useState('');
+  const [toast, show] = useToast();
+  const load = () => api('/admin/elevenlabs').then(setD).catch(e => show(e.message, 'err'));
+  useEffect(() => { load(); }, []);
+  if (!d) return <div className="card muted">Loading...</div>;
+  const run = async (what, fn) => {
+    setBusy(what);
+    try { await fn(); } catch (e) { show(e.message, 'err'); } finally { setBusy(''); }
+  };
+  const saveKey = e => { e.preventDefault(); run('save', async () => {
+    const r = await api('/admin/elevenlabs/key', { method: 'PUT', body: { key } });
+    setKey(''); show(`Save වුණා. ${r.test.message}`); load();
+  }); };
+  const test = () => run('test', async () => { const r = await api('/admin/elevenlabs/test', { method: 'POST' }); show(r.message, r.ok ? 'ok' : 'err'); });
+  const remove = () => { if (confirm('Admin panel එකේ key එක අයින් කරන්නද?')) run('del', async () => { await api('/admin/elevenlabs/key', { method: 'DELETE' }); show('අයින් කළා'); load(); }); };
+  const setMock = on => run('mock', async () => { await api('/admin/elevenlabs/mock', { method: 'PUT', body: { mock: on } }); load(); show(on ? 'Test mode ON' : 'Test mode OFF — දැන් ඇත්ත ElevenLabs'); });
+  const src = { admin: 'Admin panel එකෙන්', env: '.dev.vars / Cloudflare secret එකෙන්', none: '' }[d.key.source];
+  return (
+    <div className="card el-settings">
+      <h3>🎙 ElevenLabs (Basic / Standard plans වලට)</h3>
+      {toast}
+      <div className={`mode-switch ${d.mock ? 'is-mock' : 'is-live'}`}>
+        <div>
+          <b>{d.mock ? '🧪 Test mode — ON' : '🟢 Live — ඇත්ත ElevenLabs'}</b>
+          <div className="small muted">{d.mock ? 'Subtitles බොරු වචන (ElevenLabs එකට යන්නේ නෑ, credits වැය වෙන්නේ නෑ)' : 'Videos ඇත්තටම ElevenLabs එකෙන් කියවනවා'}</div>
+        </div>
+        <button type="button" className={`switch ${d.mock ? '' : 'on'}`} disabled={busy === 'mock'} onClick={() => setMock(!d.mock)} aria-label="Test mode">
+          <span />
+        </button>
+      </div>
+
+      <div className="key-status">
+        {d.key.source === 'none'
+          ? <span className="neg">❌ Key එකක් නෑ</span>
+          : <span>🔑 <code>••••{d.key.last4}</code> <span className="muted small">({src})</span></span>}
+        {d.key.source !== 'none' && <button type="button" className="btn ghost xs" disabled={!!busy} onClick={test}>{busy === 'test' ? 'Check කරනවා...' : '✓ Test කරන්න'}</button>}
+        {d.key.source === 'admin' && <button type="button" className="btn ghost xs danger" disabled={!!busy} onClick={remove}>අයින් කරන්න</button>}
+      </div>
+      <form onSubmit={saveKey}>
+        <label>{d.key.source === 'admin' ? 'Key එක මාරු කරන්න' : 'API key එක දාන්න'}
+          <div className="row" style={{ margin: '5px 0 0' }}>
+            <input type="password" autoComplete="off" placeholder="sk_..." value={key} onChange={e => setKey(e.target.value)} />
+            <button className="btn sm" disabled={!key.trim() || !!busy}>{busy === 'save' ? 'Check කරනවා...' : 'Save'}</button>
+          </div>
+        </label>
+        <p className="small muted">Key එක save කරන්න කලින් ElevenLabs එකෙන් check කරනවා. Database එකේ encrypt කරලා තියෙන්නේ — ආයේ පේන්නේ අන්තිම අකුරු 4 විතරයි.</p>
+      </form>
+    </div>
   );
 }

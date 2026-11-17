@@ -9,7 +9,7 @@ import { localFiles } from '../lib/localFiles.js';
 const LANGS = [['si', 'සිංහල'], ['en', 'English'], ['auto', 'Auto (භාෂාව හොයාගන්න)']];
 
 export default function Project({ id }) {
-  const { balance, plan, refresh, config } = useSession();
+  const { balance, plan, refresh, config, user } = useSession();
   const { navigate } = useRouter();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -71,7 +71,17 @@ export default function Project({ id }) {
     navigate('/dashboard');
   };
 
-  const seek = t => { if (videoRef.current) { videoRef.current.currentTime = t; videoRef.current.play(); } };
+  const rename = async t => {
+    await api(`/projects/${id}`, { method: 'PATCH', body: { title: t } });
+    setData(d => ({ ...d, project: { ...d.project, title: t } }));
+  };
+
+  const mockBanner = config?.mockMode && (
+    <div className="mock-banner">
+      🧪 <b>Test mode on</b> — subtitles බොරු වචන (ElevenLabs එකට යන්නේ නෑ).
+      {user?.role === 'admin' && <Link to="/admin">Admin → Settings වලින් off කරන්න</Link>}
+    </div>
+  );
 
   const generateCard = (
     <div className={transcript ? 'gen-inline' : 'card'}>
@@ -116,12 +126,14 @@ export default function Project({ id }) {
       </div>
 
       {transcript ? (
-        <Suspense fallback={<div className="card center muted">Editor එක load වෙනවා...</div>}>
+        <Suspense fallback={<div className="studio studio-loading"><div className="spinner" />Editor එක load වෙනවා...</div>}>
         <Editor key={transcript.updated_at} project={project} transcript={transcript} saved={data.editor}
-          plan={plan} licenseKey={config?.remotionLicenseKey} generatePanel={generateCard} />
+          plan={plan} licenseKey={config?.remotionLicenseKey} generatePanel={generateCard}
+          mockMode={!!config?.mockMode} isAdmin={user?.role === 'admin'} onRename={rename} onDelete={remove} />
         </Suspense>
       ) : (
         <div className="project-grid">
+          {mockBanner && <div style={{ gridColumn: '1 / -1' }}>{mockBanner}</div>}
           <VideoWithCaptions src={`/api/projects/${id}/video`} words={[]} videoRef={videoRef} />
           <div>{generateCard}</div>
         </div>

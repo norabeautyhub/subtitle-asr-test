@@ -1,5 +1,6 @@
 // Novi Subtitles — API (Cloudflare Worker + Hono)
 import { Hono } from 'hono';
+import { cleanKey, companyKeyInfo, deleteCompanyKey, getCompanyKey, getMockMode, saveCompanyKey, setMockMode, testElevenLabsKey } from './platform.js';
 import {
   createSession, destroySession, hashPassword, isAdminEmail, loadUser,
   requireAdmin, requireUser, validateCredentials, verifyPassword,
@@ -104,7 +105,7 @@ app.get('/me', async c => {
   const plan = await getPlan(c.env.DB, user.plan_id);
   return c.json({
     user: publicUser(user), plan: publicPlan(plan), balance: await getBalance(c.env.DB, user, plan),
-    config: { remotionLicenseKey: c.env.REMOTION_LICENSE_KEY || 'free-license' },
+    config: { remotionLicenseKey: c.env.REMOTION_LICENSE_KEY || 'free-license', mockMode: (await getMockMode(c.env)).mock },
   });
 });
 
@@ -177,8 +178,8 @@ admin.get('/stats', async c => {
     minutesUsedThisMonth: round1(used.m),
     jobsThisMonth: used.n,
     engine: {
-      elevenlabsKey: !!c.env.ELEVENLABS_API_KEY,
-      mock: c.env.ELEVENLABS_MOCK === '1',
+      elevenlabsKey: (await companyKeyInfo(c.env)).source !== 'none',
+      mock: (await getMockMode(c.env)).mock,
       encryptionSecret: !!c.env.KEY_ENCRYPTION_SECRET,
       storage: !!c.env.VIDEOS,
     },
@@ -282,7 +283,35 @@ const SETTINGS = {
 
 admin.get('/settings', async c => {
   const { results } = await c.env.DB.prepare('SELECT key, value FROM settings').all();
-  return c.json({ settings: Object.fromEntries(results.map(r => [r.key, r.value])) });
+  return c.json({ settings: Object.fromEntries(results.filter(r => !PRIVATE_SETTINGS.includes(r.key)).map(r => [r.key, r.value])) });
+});
+const PRIVATE_SETTINGS = ['elevenlabs_key', 'mock_mode'];
+
+// ---- ElevenLabs company key + Test mode ----
+admin.get('/elevenlabs', async c => {
+  const [key, mode] = await Promise.all([companyKeyInfo(c.env), getMockMode(c.env)]);
+  return c.json({ key, mock: mode.mock, mockSource: mode.source });
+});
+admin.put('/elevenlabs/key', async c => {
+  const key = cleanKey((await body(c)).key);
+  const test = await testElevenLabsKey(key);
+  if (!test.ok) throw new HttpError(400, `Key එක save කළේ නෑ: ${test.message}`);
+  await saveCompanyKey(c.env, key);
+  return c.json({ ok: true, test, key: await companyKeyInfo(c.env) });
+});
+admin.delete('/elevenlabs/key', async c => {
+  await deleteCompanyKey(c.env);
+  return c.json({ ok: true, key: await companyKeyInfo(c.env) });
+});
+admin.post('/elevenlabs/test', async c => {
+  const { key } = await getCompanyKey(c.env);
+  return c.json(await testElevenLabsKey(key));
+});
+admin.put('/elevenlabs/mock', async c => {
+  const { mock } = await body(c);
+  if (typeof mock !== 'boolean') throw new HttpError(400, 'mock: true / false');
+  await setMockMode(c.env, mock);
+  return c.json({ ok: true, ...(await getMockMode(c.env)) });
 });
 
 admin.put('/settings', async c => {

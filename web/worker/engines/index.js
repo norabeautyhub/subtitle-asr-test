@@ -11,10 +11,10 @@ export const ENGINES = {
   // පස්සේ: whisper_sinhala: { label: 'Sinhala Whisper', byok: false, impl: whisperSinhala },
 };
 
-export function getEngine(env, name) {
+/** mock = Test mode (Admin → Settings, නැත්නම් ELEVENLABS_MOCK=1) — ඇත්ත API එකට යන්නේ නෑ */
+export function getEngine(name, { mock: useMock = false } = {}) {
   const e = ENGINES[name];
   if (!e) throw new Error(`Engine "${name}" නෑ`);
-  // Local testing වලට: ELEVENLABS_MOCK=1 නම් ඇත්ත API එකට යන්නේ නෑ
-  if (env.ELEVENLABS_MOCK === '1') return { ...e, impl: mock };
+  if (useMock) return { ...e, impl: mock };
   return e;
 }

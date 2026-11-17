@@ -1,10 +1,12 @@
-// Subtitle editor: video preview (Remotion Player) + text / style / export panels
+// Subtitle studio: top bar + tools rail + panel + video canvas + timeline
 import { Player } from '@remotion/player';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { api } from '../api.js';
+import { Link } from '../App.jsx';
+import Timeline from './Timeline.jsx';
 import ExportPanel from './ExportPanel.jsx';
 import LinesPanel from './LinesPanel.jsx';
-import { DEFAULT_STYLE, activeLineIndex, lineStart, newDoc, regroup } from './model.js';
+import { DEFAULT_STYLE, activeLineIndex, deleteLine, lineEnd, lineStart, newDoc, regroup, splitLine } from './model.js';
 import StylePanel from './StylePanel.jsx';
 import SubtitleVideo, { FPS, compositionSize, durationInFrames } from './SubtitleVideo.jsx';
 import { ensureFonts } from './fonts.js';
@@ -45,10 +47,30 @@ function initialDoc(transcript, saved) {
   return newDoc(transcript, style);
 }
 
-export default function Editor({ project, transcript, saved, plan, licenseKey, generatePanel }) {
+const TOOLS = [
+  ['subtitles', '💬', 'Subtitles'],
+  ['templates', '✨', 'Templates'],
+  ['text', '🔤', 'Text style'],
+  ['animation', '🎞', 'Animation'],
+  ['layout', '📐', 'Layout'],
+  ['ai', '🤖', 'AI'],
+  ['export', '⬇', 'Export'],
+];
+const TOOL_TITLE = {
+  subtitles: 'Subtitles edit කරන්න', templates: 'Templates', text: 'Text style', animation: 'Animation',
+  layout: 'Position / Layout', ai: 'AI subtitles', export: 'Export',
+};
+const isTyping = e => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable;
+
+export default function Editor({ project, transcript, saved, plan, licenseKey, generatePanel, mockMode, isAdmin, onRename, onDelete }) {
   const [hist, dispatch] = useReducer(historyReducer, null, () => ({ doc: initialDoc(transcript, saved), past: [], future: [], lastKey: null, lastAt: 0 }));
   const doc = hist.doc;
-  const [tab, setTab] = useState('text');
+  const [tab, setTab] = useState('subtitles');
+  const [playing, setPlaying] = useState(false);
+  const [title, setTitle] = useState(project.title);
+  const [toast, setToast] = useState('');
+  const canvasRef = useRef(null);
+  const [fit, setFit] = useState({ w: 0, h: 0 });
   const [frame, setFrame] = useState(0);
   const [selected, setSelected] = useState(0);
   const [singlish, setSinglish] = useState(true);
@@ -101,11 +123,39 @@ export default function Editor({ project, transcript, saved, plan, licenseKey, g
     const p = playerRef.current;
     if (!p) return;
     const onFrame = e => setFrame(e.detail.frame);
+    const onPlay = () => setPlaying(true), onPause = () => setPlaying(false);
     p.addEventListener('frameupdate', onFrame);
     p.addEventListener('seeked', onFrame);
-    return () => { p.removeEventListener('frameupdate', onFrame); p.removeEventListener('seeked', onFrame); };
+    p.addEventListener('play', onPlay);
+    p.addEventListener('pause', onPause);
+    p.addEventListener('ended', onPause);
+    return () => {
+      p.removeEventListener('frameupdate', onFrame); p.removeEventListener('seeked', onFrame);
+      p.removeEventListener('play', onPlay); p.removeEventListener('pause', onPause); p.removeEventListener('ended', onPause);
+    };
+  }, [fit.w > 0]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (current >= 0 && playing) setSelected(current); }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Studio එක full screen — පිටුපස page එක scroll වෙන්නේ නෑ
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
   }, []);
-  useEffect(() => { if (current >= 0 && tab === 'text') setSelected(current); }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Video එක canvas එකට ගැලපෙන size එක
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const W = el.clientWidth - 32, H = el.clientHeight - 32;
+      const a = size.width / size.height;
+      const w = Math.max(80, Math.min(W, H * a));
+      setFit({ w: Math.round(w), h: Math.round(w / a) });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [size.width, size.height]);
 
   const seek = t => { playerRef.current?.seekTo(Math.round(t * FPS)); setFrame(Math.round(t * FPS)); };
   const selectLine = (i, jump) => { setSelected(i); if (jump && doc.lines[i]) seek(lineStart(doc.lines[i]) + 0.01); };
@@ -130,61 +180,133 @@ export default function Editor({ project, transcript, saved, plan, licenseKey, g
     return () => { removeEventListener('pointermove', onDragMove); removeEventListener('pointerup', up); };
   }, [onDragMove]);
 
-  const setLines = (lines, key) => update(d => ({ ...d, lines }), key);
+  const setLines = useCallback((lines, key) => update(d => ({ ...d, lines: typeof lines === 'function' ? lines(d.lines) : lines }), key), [update]);
+  const togglePlay = useCallback(() => playerRef.current?.toggle(), []);
+  const flash = msg => { setToast(msg); setTimeout(() => setToast(''), 2500); };
+
+  const splitAtPlayhead = useCallback(() => {
+    const i = doc.lines.findIndex(l => l.words.length && time >= lineStart(l) && time < lineEnd(l));
+    if (i < 0) return flash('Playhead එක subtitle line එකක් උඩ තියන්න');
+    const wi = doc.lines[i].words.findIndex(w => w.start >= time - 0.01);
+    if (wi <= 0) return flash('මේ තැනින් කඩන්න බෑ — වචන දෙකක් අතරට playhead එක ගේන්න');
+    setLines(splitLine(doc.lines, i, wi));
+    setSelected(i + 1);
+  }, [doc.lines, time, setLines]);
+  const deleteSelected = useCallback(() => {
+    if (!doc.lines[selected]) return;
+    setLines(deleteLine(doc.lines, selected));
+    setSelected(Math.max(0, selected - 1));
+  }, [doc.lines, selected, setLines]);
+
+  // Keyboard: Space = play, S = split, Delete = line එක මකන්න (type කරනකොට නෙවෙයි)
+  useEffect(() => {
+    const onKey = e => {
+      if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      else if (e.key === 's' || e.key === 'S') { e.preventDefault(); splitAtPlayhead(); }
+      else if (e.key === 'Delete') { e.preventDefault(); deleteSelected(); }
+    };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, [togglePlay, splitAtPlayhead, deleteSelected]);
+
+  const saveTitle = async () => {
+    const t = title.trim();
+    if (!t) { setTitle(project.title); return; }
+    if (t === project.title) return;
+    try { await onRename?.(t); } catch { setTitle(project.title); flash('නම save වුණේ නෑ'); }
+  };
   const setStyle = (style, key) => update(d => ({ ...d, style }), key);
 
-  const aspect = size.width / size.height;
+  const saveLabel = { saved: '✓ Save වුණා', dirty: '● වෙනස්කම්', saving: '⟳ Save වෙනවා', error: '⚠ Save වුණේ නෑ' }[saveState];
 
   return (
-    <div className="editor">
-      <div className="editor-left">
-        <div className="player-box" ref={boxRef} style={{ aspectRatio: `${size.width} / ${size.height}`, maxWidth: aspect < 1 ? `${72 * aspect}vh` : '100%' }}>
-          <Player
-            ref={playerRef}
-            component={SubtitleVideo}
-            inputProps={inputProps}
-            durationInFrames={durationInFrames(project.duration)}
-            fps={FPS}
-            compositionWidth={size.width}
-            compositionHeight={size.height}
-            controls
-            style={{ width: '100%', height: '100%' }}
-            acknowledgeRemotionLicense
-          />
-          <div className="pos-overlay">
-            <div className="pos-handle" title="Subtitle එක drag කරන්න"
-              style={{ left: `${doc.style.position.x}%`, top: `${doc.style.position.y}%` }}
-              onPointerDown={e => { e.preventDefault(); dragging.current = true; }}>✥</div>
-          </div>
+    <div className="studio">
+      <header className="st-top">
+        <div className="st-top-l">
+          <Link to="/dashboard" className="st-back" title="Dashboard">←</Link>
+          <span className="st-logo">N</span>
+          <input className="st-title" value={title} onChange={e => setTitle(e.target.value)} onBlur={saveTitle}
+            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} aria-label="Project නම" maxLength={150} />
         </div>
-        <div className="row between small editor-status">
-          <span>
-            <button className="btn ghost xs" onClick={undo} disabled={!hist.past.length} title="Ctrl + Z">↶ Undo</button>{' '}
-            <button className="btn ghost xs" onClick={redo} disabled={!hist.future.length} title="Ctrl + Y">↷ Redo</button>
-          </span>
-          <span className={`save ${saveState}`}>
-            {{ saved: '✓ Save වුණා', dirty: '● වෙනස්කම්...', saving: '⟳ Save වෙනවා...', error: '⚠ Save වුණේ නෑ — internet බලන්න' }[saveState]}
-          </span>
+        <div className="st-top-c">
+          <button className="icon-btn" onClick={undo} disabled={!hist.past.length} title="Undo (Ctrl + Z)">↶</button>
+          <button className="icon-btn" onClick={redo} disabled={!hist.future.length} title="Redo (Ctrl + Y)">↷</button>
+          <span className={`save ${saveState}`}>{saveLabel}</span>
         </div>
-      </div>
+        <div className="st-top-r">
+          {mockMode && (isAdmin
+            ? <Link to="/admin" className="mock-pill" title="Admin → Settings වලින් off කරන්න">🧪 Test mode</Link>
+            : <span className="mock-pill">🧪 Test mode</span>)}
+          <button className="btn st-export" onClick={() => setTab('export')}>⬇ Export</button>
+        </div>
+      </header>
 
-      <div className="editor-right card">
-        <div className="tabs">
-          {[['text', '✏️ Text'], ['style', '🎨 Style'], ['export', '⬇ Export']].map(([k, l]) => (
-            <button key={k} className={`tab ${tab === k ? 'on' : ''}`} onClick={() => setTab(k)}>{l}</button>
+      <div className="st-body">
+        <nav className="st-rail">
+          {TOOLS.map(([k, icon, label]) => (
+            <button key={k} className={`rail-btn ${tab === k ? 'on' : ''} ${k === 'export' ? 'rail-export' : ''}`} onClick={() => setTab(k)} data-tool={k}>
+              <span className="ri">{icon}</span><span className="rl">{label}</span>
+            </button>
           ))}
-        </div>
-        {tab === 'text' && (
-          <>
-            <LinesPanel lines={doc.lines} current={current} selected={Math.min(selected, doc.lines.length - 1)}
-              onSelect={selectLine} onLines={setLines} singlish={singlish} onToggleSinglish={() => setSinglish(s => !s)} />
-            {generatePanel}
-          </>
-        )}
-        {tab === 'style' && (
-          <StylePanel style={doc.style} onStyle={setStyle} onRegroup={() => update(d => ({ ...d, lines: regroup(d.lines, d.style) }))} />
-        )}
-        {tab === 'export' && <ExportPanel project={project} doc={doc} plan={plan} licenseKey={licenseKey} />}
+        </nav>
+
+        <aside className="st-panel">
+          <div className="st-panel-h">{TOOL_TITLE[tab]}</div>
+          <div className="st-panel-b">
+            {tab === 'subtitles' && (
+              <LinesPanel lines={doc.lines} current={current} selected={Math.min(selected, doc.lines.length - 1)}
+                onSelect={selectLine} onLines={setLines} singlish={singlish} onToggleSinglish={() => setSinglish(s => !s)} />
+            )}
+            {['templates', 'text', 'animation', 'layout'].includes(tab) && (
+              <StylePanel section={tab} style={doc.style} onStyle={setStyle} onRegroup={() => update(d => ({ ...d, lines: regroup(d.lines, d.style) }))} />
+            )}
+            {tab === 'ai' && (
+              <div className="ai-panel">
+                {generatePanel}
+                <div className="danger-zone">
+                  <h5>Project එක</h5>
+                  <button className="btn ghost sm danger full" onClick={onDelete}>🗑 මේ project එක delete කරන්න</button>
+                </div>
+              </div>
+            )}
+            {tab === 'export' && <ExportPanel project={{ ...project, title }} doc={doc} plan={plan} licenseKey={licenseKey} />}
+          </div>
+        </aside>
+
+        <main className="st-main">
+          <div className="st-canvas" ref={canvasRef}>
+            {fit.w > 0 && (
+              <div className="player-box" ref={boxRef} style={{ width: fit.w, height: fit.h }}>
+                <Player
+                  ref={playerRef}
+                  component={SubtitleVideo}
+                  inputProps={inputProps}
+                  durationInFrames={durationInFrames(project.duration)}
+                  fps={FPS}
+                  compositionWidth={size.width}
+                  compositionHeight={size.height}
+                  controls={false}
+                  clickToPlay
+                  spaceKeyToPlayOrPause={false}
+                  style={{ width: '100%', height: '100%' }}
+                  acknowledgeRemotionLicense
+                />
+                <div className="pos-overlay">
+                  <div className="pos-handle" title="Subtitle එක drag කරන්න"
+                    style={{ left: `${doc.style.position.x}%`, top: `${doc.style.position.y}%` }}
+                    onPointerDown={e => { e.preventDefault(); e.stopPropagation(); dragging.current = true; }}>✥</div>
+                </div>
+              </div>
+            )}
+            {toast && <div className="st-toast">{toast}</div>}
+          </div>
+          <Timeline lines={doc.lines} duration={project.duration || 1} time={time} playing={playing}
+            selected={Math.min(selected, doc.lines.length - 1)}
+            onSeek={seek} onTogglePlay={togglePlay}
+            onSelect={setSelected}
+            onLines={setLines} onSplitAtPlayhead={splitAtPlayhead} onDelete={deleteSelected} />
+        </main>
       </div>
     </div>
   );

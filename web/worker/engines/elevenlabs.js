@@ -16,9 +16,9 @@ async function callModel(apiKey, model, audio, language) {
   return fetch(URL, { method: 'POST', headers: { 'xi-api-key': apiKey }, body: form });
 }
 
-export async function transcribe(env, { audio, language = 'si', apiKey }) {
+export async function transcribe(env, { audio, language = 'si', apiKey, byok = false }) {
   const key = apiKey || env.ELEVENLABS_API_KEY;
-  if (!key) throw new HttpError(500, 'ElevenLabs API key එක server එකේ set කරලා නෑ');
+  if (!key) throw new HttpError(500, 'ElevenLabs API key එක set කරලා නෑ — Admin → Settings වල දාන්න');
 
   let lastErr = '';
   for (const model of MODELS) {
@@ -32,8 +32,8 @@ export async function transcribe(env, { audio, language = 'si', apiKey }) {
     }
     const body = (await r.text()).slice(0, 300);
     // Key එකේ ප්‍රශ්නයක් / credits ඉවර නම් අනිත් model එකත් fail වෙනවා — කෙලින්ම කියනවා
-    if (r.status === 401) throw new HttpError(502, apiKey ? 'ඔයාගේ ElevenLabs API key එක වැරදියි හරි Speech to Text permission එක නෑ' : 'ElevenLabs API key error (server)');
-    if (r.status === 402 || /quota|credits/i.test(body)) throw new HttpError(502, apiKey ? 'ඔයාගේ ElevenLabs account එකේ credits ඉවරයි' : 'ElevenLabs credits ඉවරයි (server)');
+    if (r.status === 401) throw new HttpError(502, byok ? 'ඔයාගේ ElevenLabs API key එක වැරදියි හරි Speech to Text permission එක නෑ' : 'ElevenLabs API key error — Admin → Settings වල key එක check කරන්න');
+    if (r.status === 402 || /quota|credits/i.test(body)) throw new HttpError(502, byok ? 'ඔයාගේ ElevenLabs account එකේ credits ඉවරයි' : 'ElevenLabs credits ඉවරයි (server)');
     if (r.status === 429) throw new HttpError(503, 'ElevenLabs busy — ටික වෙලාවකින් ආයේ try කරන්න');
     lastErr = `HTTP ${r.status}: ${body}`;
   }

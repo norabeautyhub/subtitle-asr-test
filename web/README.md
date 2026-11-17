@@ -1,4 +1,4 @@
-# Novi Subtitles — Web App (Phase 1: කොටස 1 – 4)
+# Novi Subtitles — Web App (Phase 1: කොටස 1 – 5)
 
 සිංහල සහ English auto subtitles SaaS එක. Cloudflare Workers + D1 database + React.
 
@@ -146,6 +146,13 @@ Admin panel → Overview එකේ **ElevenLabs key / Storage / Encryption** හ
 Cloudflare dashboard → **Workers & Pages** → **novi-subtitles** → **Settings** → **Domains & Routes** → **Add** → **Custom domain** → `subtitles.novitechwa.com` → **Add domain**
 
 ---
+
+### කොටස 5 — Studio editor + Admin ElevenLabs settings (අලුත්)
+- 🖥 **Full screen studio:** උඩ bar එක (project නම වෙනස් කරන්න, Undo/Redo, Save status, Export), වම් පැත්තේ tools (Subtitles, Templates, Text style, Animation, Layout, AI, Export), මැද video එක
+- 🎞 **Timeline:** subtitle blocks drag කරලා කාලය මාරු කරන්න, දාර ඇදලා දිග වෙනස් කරන්න, ruler එක click කරලා video එකේ ඕන තැනකට යන්න, zoom (Ctrl + scroll)
+- ⌨ Shortcuts: **Space** play/pause · **S** playhead එකෙන් line එක කඩන්න · **Delete** line එක මකන්න · **Ctrl+Z / Ctrl+Y**
+- 🔑 **Admin → Settings → ElevenLabs:** company API key එක මෙතනින් දාන්න (check කරලා, encrypt කරලා save වෙනවා). `.dev.vars` එකේ key එක තිබ්බත් admin panel එකේ key එකට තමයි මුල් තැන
+- 🧪 **Test mode switch:** බොරු subtitles (credits වැය නෑ) ↔ ඇත්ත ElevenLabs. Test mode on නම් editor එකේ "🧪 Test mode" කියලා පේනවා
 
 ## 🎬 Remotion license (MP4 export)
 MP4 export එකට Remotion කියන library එක පාවිච්චි කරනවා. ඒකේ license එක:
